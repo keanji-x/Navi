@@ -30,15 +30,8 @@ pub fn run(file: &Path, line: usize) -> Result<()> {
     let (grep, source) = parse_file(file)?;
     let root = grep.root();
     let lines: Vec<&str> = source.lines().collect();
-    let target_line = line.saturating_sub(1); // convert to 0-based
-
-    if target_line >= lines.len() {
-        anyhow::bail!(
-            "Line {} is beyond end of file ({} lines)",
-            line,
-            lines.len()
-        );
-    }
+    // Convert to 0-based and clamp to last valid line (editors may report cursor at EOF)
+    let target_line = line.saturating_sub(1).min(lines.len().saturating_sub(1));
 
     // DFS to find all scopes containing the target line, from outermost to innermost
     let mut scopes: Vec<ScopeInfo> = Vec::new();
