@@ -24,6 +24,7 @@ Navi is a Rust-based CLI tool built on `ast-grep` that provides AI-optimized cod
 | `navi types <SYMBOL> [--path <DIR>] [--depth <N>]` | Recursively expand type definitions |
 | `navi scope <FILE> <LINE>` | Show enclosing scope at a line |
 | `navi diff <SYMBOL> [--path <DIR>]` | Git diff filtered to a symbol |
+| `navi impls <TRAIT> [--path <DIR>]` | Find all implementations of a trait/interface |
 | `navi sg [ARGS...]` | Passthrough to ast-grep CLI |
 | `navi init [DIR]` | Write/update this skill document |
 

@@ -49,6 +49,10 @@ fn main() {
             ref symbol,
             ref path,
         } => commands::diff::run(symbol, path.as_deref()),
+        Command::Impls {
+            ref symbol,
+            ref path,
+        } => commands::impls::run(symbol, path.as_deref()),
         Command::Outline { ref path } => commands::outline::run(path.as_deref()),
         Command::Types {
             ref symbol,
