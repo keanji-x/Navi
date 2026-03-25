@@ -125,6 +125,7 @@ pub struct DefinitionInfo {
     pub start_line: usize, // 0-based
     pub end_line: usize,   // 0-based
     pub text: String,
+    pub depth: usize, // nesting depth: 0 = top-level, 1 = class member, etc.
 }
 
 /// Collect all top-level (and nested method) definitions from the AST.
@@ -152,16 +153,32 @@ fn collect_definitions_recursive(
             start_line,
             end_line,
             text: node.text().to_string(),
+            depth,
         });
-        // For class/struct/impl bodies, recurse to find methods
-        if kind.contains("class")
-            || kind.contains("struct")
-            || kind.contains("impl")
-            || kind.contains("trait")
-            || kind.contains("interface")
-        {
+
+        // Determine which node to recurse into for member extraction
+        let is_container = |k: &str| {
+            k.contains("class")
+                || k.contains("struct")
+                || k.contains("impl")
+                || k.contains("trait")
+                || k.contains("interface")
+        };
+
+        if is_container(&kind) {
+            // Direct class/struct/impl/trait/interface — recurse into body
             for child in node.children() {
                 collect_definitions_recursive(&child, defs, depth + 1);
+            }
+        } else if kind == "export_statement" {
+            // Export wrapper — look for the inner class/interface declaration and recurse
+            for child in node.children() {
+                let child_kind = child.kind().to_string();
+                if is_container(&child_kind) {
+                    for grandchild in child.children() {
+                        collect_definitions_recursive(&grandchild, defs, depth + 1);
+                    }
+                }
             }
         }
         return;
@@ -209,4 +226,144 @@ pub fn find_references_in_node(
         }
     }
     refs
+}
+
+/// Node kinds that represent import/use declarations across languages.
+const IMPORT_KINDS: &[&str] = &[
+    "import_statement",      // TS/JS
+    "import_declaration",    // Go
+    "use_declaration",       // Rust
+    "import_from_statement", // Python (from x import y)
+    "import_specification",  // TS/JS (named imports)
+    "export_statement",      // TS/JS re-exports
+];
+
+/// Information about an import found in the AST.
+pub struct ImportInfo {
+    pub line: usize,       // 0-based
+    pub source: String,    // The module specifier / path (e.g. "./backend", "@pkg/shared")
+    pub line_text: String, // Full line text for display
+}
+
+/// Extract all import/use statements from the AST root.
+pub fn extract_imports(
+    node: &ast_grep_core::Node<ast_grep_core::tree_sitter::StrDoc<SupportLang>>,
+    source_text: &str,
+) -> Vec<ImportInfo> {
+    let mut imports = Vec::new();
+    let lines: Vec<&str> = source_text.lines().collect();
+
+    for child in node.children() {
+        let kind = child.kind().to_string();
+
+        if !IMPORT_KINDS.contains(&kind.as_str()) {
+            continue;
+        }
+
+        let line = child.start_pos().line();
+        let line_text = lines.get(line).unwrap_or(&"").to_string();
+
+        // Try to find the module source/specifier by looking for string nodes
+        let mut module_source = None;
+
+        // DFS to find the string/source field
+        for n in child.dfs() {
+            let nk = n.kind().to_string();
+            // TS/JS: "string" or "string_fragment", source field
+            // Rust: "scoped_identifier", "identifier" in use paths
+            // Python: "dotted_name"
+            // Go: "interpreted_string_literal"
+            if nk == "string_fragment" || nk == "interpreted_string_literal" {
+                module_source = Some(n.text().to_string());
+                break;
+            }
+            // Rust use paths
+            if kind == "use_declaration"
+                && (nk == "scoped_identifier" || nk == "use_as_clause" || nk == "scoped_use_list")
+            {
+                module_source = Some(n.text().to_string());
+                break;
+            }
+            // Python dotted name
+            if nk == "dotted_name" {
+                module_source = Some(n.text().to_string());
+                break;
+            }
+        }
+
+        if let Some(src) = module_source {
+            imports.push(ImportInfo {
+                line,
+                source: src,
+                line_text,
+            });
+        }
+    }
+    imports
+}
+
+/// Node kinds that represent function/method call expressions across languages.
+const CALL_EXPRESSION_KINDS: &[&str] = &[
+    "call_expression",       // TS/JS/Rust/Go/C/C++
+    "method_invocation",     // Java
+    "call",                  // Python
+    "send",                  // Ruby (method call)
+    "function_call_expr",    // Kotlin
+    "invocation_expression", // C#
+];
+
+/// Find all call-site references to a symbol (filtering out imports, type annotations, etc.).
+/// Only returns references where the symbol appears as the callee of a function/method call.
+pub fn find_callers_in_node(
+    node: &ast_grep_core::Node<ast_grep_core::tree_sitter::StrDoc<SupportLang>>,
+    symbol: &str,
+    source: &str,
+) -> Vec<ReferenceInfo> {
+    let mut callers = Vec::new();
+    let lines: Vec<&str> = source.lines().collect();
+
+    for n in node.dfs() {
+        let kind = n.kind();
+        if (kind.as_ref() == "identifier"
+            || kind.as_ref() == "property_identifier"
+            || kind.as_ref() == "field_identifier")
+            && n.text().as_ref() == symbol
+        {
+            // Walk up ancestors to check if this identifier is in a call expression
+            let mut current = n.clone();
+            let mut is_call = false;
+            // Check up to 3 levels of parents (handles member_expression → call_expression chains)
+            for _ in 0..4 {
+                if let Some(p) = current.parent() {
+                    let pk = p.kind().to_string();
+                    if CALL_EXPRESSION_KINDS.contains(&pk.as_str()) {
+                        is_call = true;
+                        break;
+                    }
+                    // Stop climbing if we hit a statement or declaration boundary
+                    if pk.contains("statement")
+                        || pk.contains("declaration")
+                        || pk.contains("definition")
+                    {
+                        break;
+                    }
+                    current = p;
+                } else {
+                    break;
+                }
+            }
+
+            if is_call {
+                let line = n.start_pos().line();
+                let col = n.start_pos().byte_point().1;
+                let line_text = lines.get(line).unwrap_or(&"").to_string();
+                callers.push(ReferenceInfo {
+                    line,
+                    column: col,
+                    line_text,
+                });
+            }
+        }
+    }
+    callers
 }

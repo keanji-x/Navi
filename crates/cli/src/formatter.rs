@@ -1,19 +1,26 @@
 /// Format a definition skeleton line for `navi list`.
 /// Replaces the body (everything after the first `{` or `:`) with `{ ... }`.
-pub fn format_skeleton_line(text: &str, start_line: usize) -> String {
+/// `depth` controls indentation: 0 = top-level, 1+ = nested members.
+pub fn format_skeleton_line(text: &str, start_line: usize, depth: usize) -> String {
     let first_line = text.lines().next().unwrap_or(text);
+    let indent = "        ".repeat(depth); // 8 spaces per nesting level
 
     // Try to find the opening brace to truncate the body
     if let Some(brace_pos) = first_line.find('{') {
         let signature = first_line[..brace_pos].trim_end();
-        format!("{:>4}: {} {{ ... }}", start_line + 1, signature)
+        format!("{:>4}: {}{} {{ ... }}", start_line + 1, indent, signature)
     } else if let Some(colon_pos) = first_line.find(':') {
         // Python-style: `def foo():` or `class Foo:`
         let signature = &first_line[..=colon_pos];
-        format!("{:>4}: {} ...", start_line + 1, signature.trim_end())
+        format!(
+            "{:>4}: {}{} ...",
+            start_line + 1,
+            indent,
+            signature.trim_end()
+        )
     } else {
         // Fallback: just show the first line
-        format!("{:>4}: {}", start_line + 1, first_line.trim_end())
+        format!("{:>4}: {}{}", start_line + 1, indent, first_line.trim_end())
     }
 }
 
