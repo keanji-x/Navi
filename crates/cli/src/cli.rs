@@ -86,6 +86,14 @@ pub enum Command {
         #[arg(long)]
         path: Option<PathBuf>,
     },
+    /// Find all implementations of a trait/interface
+    Impls {
+        /// Trait or interface name to search for
+        symbol: String,
+        /// Optional directory to search in (defaults to CWD)
+        #[arg(long)]
+        path: Option<PathBuf>,
+    },
     /// Show project-level architecture overview with package dependencies
     Outline {
         /// Optional directory to scan (defaults to CWD)
