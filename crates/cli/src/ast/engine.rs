@@ -176,7 +176,7 @@ fn collect_definitions_recursive(
 
 /// Find all identifier nodes that match a given symbol name.
 pub struct ReferenceInfo {
-    pub line: usize,   // 0-based
+    pub line: usize, // 0-based
     #[allow(dead_code)]
     pub column: usize, // 0-based
     pub line_text: String,

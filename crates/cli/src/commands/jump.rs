@@ -37,7 +37,7 @@ pub fn run(symbol: &str, path: Option<&Path>) -> Result<()> {
         }
     }
 
-    println!("No results found for '{}'", symbol);
+    println!("No results found for '{symbol}'");
     Ok(())
 }
 
@@ -57,7 +57,7 @@ fn search_file(file: &Path, symbol: &str) -> Result<()> {
                     def.end_line,
                     3, // context lines
                 );
-                print!("{}", output);
+                print!("{output}");
                 // Return Ok to signal we found it
                 return Ok(());
             }

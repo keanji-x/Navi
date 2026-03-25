@@ -14,7 +14,7 @@ pub fn run(file: &Path, range: &str) -> Result<()> {
     let (start, end) = parse_range(range)?;
 
     let output = formatter::format_read_output(&file.display().to_string(), &source, start, end);
-    print!("{}", output);
+    print!("{output}");
     Ok(())
 }
 
@@ -22,10 +22,7 @@ pub fn run(file: &Path, range: &str) -> Result<()> {
 fn parse_range(range: &str) -> Result<(usize, usize)> {
     let parts: Vec<&str> = range.split('-').collect();
     if parts.len() != 2 {
-        bail!(
-            "Invalid range format '{}'. Expected START-END (e.g., 10-20)",
-            range
-        );
+        bail!("Invalid range format '{range}'. Expected START-END (e.g., 10-20)");
     }
 
     let start: usize = parts[0]
@@ -39,7 +36,7 @@ fn parse_range(range: &str) -> Result<(usize, usize)> {
         bail!("Start line must be >= 1");
     }
     if end < start {
-        bail!("End line ({}) must be >= start line ({})", end, start);
+        bail!("End line ({end}) must be >= start line ({start})");
     }
 
     Ok((start, end))

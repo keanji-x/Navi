@@ -20,7 +20,7 @@ pub fn format_skeleton_line(text: &str, start_line: usize) -> String {
 /// Format the complete output for `navi list`.
 #[allow(dead_code)]
 pub fn format_list_output(file_path: &str, skeletons: &[(usize, String)]) -> String {
-    let mut out = format!("File: {}\n", file_path);
+    let mut out = format!("File: {file_path}\n");
     for (line, text) in skeletons {
         out.push_str(&format!("{:>4}: {}\n", line + 1, text));
     }
@@ -40,7 +40,7 @@ pub fn format_jump_output(
     let ctx_start = start_line.saturating_sub(context);
     let ctx_end = (end_line + context).min(lines.len().saturating_sub(1));
 
-    let mut out = format!("Found definition for '{}' in {}:\n", symbol, file_path);
+    let mut out = format!("Found definition for '{symbol}' in {file_path}:\n");
     for i in ctx_start..=ctx_end {
         if let Some(line) = lines.get(i) {
             out.push_str(&format!("{:>4}: {}\n", i + 1, line));
@@ -52,7 +52,7 @@ pub fn format_jump_output(
 /// Format references output for `navi refs`.
 pub fn format_refs_output(symbol: &str, refs: &[(String, usize, String)]) -> String {
     if refs.is_empty() {
-        return format!("No results found for '{}'\n", symbol);
+        return format!("No results found for '{symbol}'\n");
     }
     let mut out = format!("Found {} references for '{}':\n", refs.len(), symbol);
     for (file, line, text) in refs {
@@ -75,10 +75,7 @@ pub fn format_read_output(file_path: &str, source: &str, start: usize, end: usiz
         }
     }
     if out.is_empty() {
-        out = format!(
-            "No results found for '{}' lines {}-{}\n",
-            file_path, start, end
-        );
+        out = format!("No results found for '{file_path}' lines {start}-{end}\n");
     }
     out
 }

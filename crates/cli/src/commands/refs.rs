@@ -35,7 +35,7 @@ pub fn run(symbol: &str, path: Option<&Path>) -> Result<()> {
     }
 
     let output = formatter::format_refs_output(symbol, &all_refs);
-    print!("{}", output);
+    print!("{output}");
     Ok(())
 }
 

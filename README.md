@@ -7,15 +7,29 @@ Built on [ast-grep](https://ast-grep.github.io/) and tree-sitter. Zero ANSI nois
 ## Quick Start
 
 ```bash
-# 1. Install
-cargo install navi-code
+# One-liner: installs Rust (if needed) + Navi + ast-grep
+curl -sSf https://raw.githubusercontent.com/keanji-x/Navi/main/install.sh | bash
 
-# 2. Initialize skill document for your AI agent
+# Or install manually:
+# 0. Install Rust toolchain (skip if you already have cargo)
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source "$HOME/.cargo/env"
+
+# 1. Install Navi
+cargo install --git https://github.com/keanji-x/Navi.git
+
+# 2. Install ast-grep (needed for `navi sg`)
+cargo install ast-grep
+
+# Update to latest (re-run with --force)
+# cargo install --git https://github.com/keanji-x/Navi.git --force
+# cargo install ast-grep
+
+# 3. Initialize skill document for your AI agent
 cd your-project/
 navi init
 
 # Done! Your AI agent can now read .agent/skills/navi/SKILL.md
-# to learn how to use Navi for code navigation.
 ```
 
 After `navi init`, the following file is created:
@@ -93,6 +107,23 @@ Create `.agent/skills/navi/SKILL.md` so AI agents can discover and learn Navi au
 ```
 $ navi init
 Created Navi skill document at: ./.agent/skills/navi/SKILL.md
+```
+
+### `navi sg [ARGS...]` — ast-grep Passthrough
+
+Direct access to the full [ast-grep](https://ast-grep.github.io/) CLI. All arguments are forwarded as-is.
+
+```bash
+# Structural search: find all function definitions
+navi sg run -p 'fn $NAME' -l rust src/
+
+# Pattern with rewrite
+navi sg run -p 'unwrap()' -r 'expect("TODO")' -l rust src/
+
+# Use ast-grep's scan, test, and all other commands
+navi sg scan
+navi sg test
+navi sg --help    # Full ast-grep help
 ```
 
 ## Exit Codes

@@ -44,4 +44,11 @@ pub enum Command {
         #[arg(long)]
         path: Option<PathBuf>,
     },
+    /// Passthrough to ast-grep CLI (run, scan, test, etc.)
+    #[command(trailing_var_arg = true)]
+    Sg {
+        /// Arguments forwarded to ast-grep
+        #[arg(allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
 }
