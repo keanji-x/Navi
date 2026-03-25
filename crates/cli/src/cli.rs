@@ -54,6 +54,9 @@ pub enum Command {
     Tree {
         /// Optional directory to scan (defaults to CWD)
         path: Option<PathBuf>,
+        /// Max directory depth to recurse into
+        #[arg(long)]
+        depth: Option<usize>,
     },
     /// Passthrough to ast-grep CLI (run, scan, test, etc.)
     #[command(trailing_var_arg = true)]

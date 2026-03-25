@@ -14,16 +14,16 @@ Navi is a Rust-based CLI tool built on `ast-grep` that provides AI-optimized cod
 | Command | Purpose |
 |---------|---------|
 | `navi list <FILE>` | Extract file skeleton (collapsed bodies) |
-| `navi jump <SYMBOL>` | Jump to symbol definition |
-| `navi refs <SYMBOL>` | Find all references to a symbol |
+| `navi jump <SYMBOL> [--path <DIR>] [--all]` | Jump to symbol definition |
+| `navi refs <SYMBOL> [--path <DIR>]` | Find all references to a symbol |
 | `navi read <FILE> <RANGE>` | Read exact line range |
-| `navi tree [DIR]` | Recursive directory skeleton |
+| `navi tree [DIR] [--depth <N>]` | Recursive directory skeleton |
 | `navi outline [DIR]` | Project architecture overview |
-| `navi callers <SYMBOL>` | Find call-sites (excludes imports) |
+| `navi callers <SYMBOL> [--path <DIR>]` | Find call-sites (excludes imports) |
 | `navi deps <FILE>` | Show file import/reverse-import graph |
-| `navi types <SYMBOL>` | Recursively expand type definitions |
+| `navi types <SYMBOL> [--path <DIR>] [--depth <N>]` | Recursively expand type definitions |
 | `navi scope <FILE> <LINE>` | Show enclosing scope at a line |
-| `navi diff <SYMBOL>` | Git diff filtered to a symbol |
+| `navi diff <SYMBOL> [--path <DIR>]` | Git diff filtered to a symbol |
 | `navi sg [ARGS...]` | Passthrough to ast-grep CLI |
 | `navi init [DIR]` | Write/update this skill document |
 
