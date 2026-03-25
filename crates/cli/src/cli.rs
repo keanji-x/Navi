@@ -22,6 +22,9 @@ pub enum Command {
         /// Optional directory to search in (defaults to CWD)
         #[arg(long)]
         path: Option<PathBuf>,
+        /// Show all definitions instead of just the first
+        #[arg(long)]
+        all: bool,
     },
     /// Find all references to a symbol
     Refs {
@@ -44,11 +47,62 @@ pub enum Command {
         #[arg(long)]
         path: Option<PathBuf>,
     },
+    /// Recursively list skeleton of all files in a directory
+    Tree {
+        /// Optional directory to scan (defaults to CWD)
+        #[arg(long)]
+        path: Option<PathBuf>,
+    },
     /// Passthrough to ast-grep CLI (run, scan, test, etc.)
     #[command(trailing_var_arg = true)]
     Sg {
         /// Arguments forwarded to ast-grep
         #[arg(allow_hyphen_values = true)]
         args: Vec<String>,
+    },
+    /// Find call-site usages of a symbol (excludes imports, type annotations)
+    Callers {
+        /// Symbol name to search for
+        symbol: String,
+        /// Optional directory to search in (defaults to CWD)
+        #[arg(long)]
+        path: Option<PathBuf>,
+    },
+    /// Show file dependencies (imports and reverse imports)
+    Deps {
+        /// Path to the source file
+        file: PathBuf,
+    },
+    /// Show git diff filtered to a specific symbol
+    Diff {
+        /// Symbol name to filter diff for
+        symbol: String,
+        /// Optional directory to search in (defaults to CWD)
+        #[arg(long)]
+        path: Option<PathBuf>,
+    },
+    /// Show project-level architecture overview with package dependencies
+    Outline {
+        /// Optional directory to scan (defaults to CWD)
+        #[arg(long)]
+        path: Option<PathBuf>,
+    },
+    /// Recursively expand a type and its referenced types
+    Types {
+        /// Symbol name to look up
+        symbol: String,
+        /// Optional directory to search in (defaults to CWD)
+        #[arg(long)]
+        path: Option<PathBuf>,
+        /// Max depth of recursive type expansion (default: 1)
+        #[arg(long, default_value = "1")]
+        depth: usize,
+    },
+    /// Show the enclosing scope (function/method) for a given file and line
+    Scope {
+        /// Path to the source file
+        file: PathBuf,
+        /// Line number (1-indexed)
+        line: usize,
     },
 }

@@ -21,7 +21,8 @@ fn main() {
         Command::Jump {
             ref symbol,
             ref path,
-        } => commands::jump::run(symbol, path.as_deref()),
+            all,
+        } => commands::jump::run(symbol, path.as_deref(), all),
         Command::Refs {
             ref symbol,
             ref path,
@@ -37,7 +38,24 @@ fn main() {
             commands::read::run(file, range)
         }
         Command::Init { ref path } => commands::init::run(path.as_deref()),
+        Command::Tree { ref path } => commands::tree::run(path.as_deref()),
         Command::Sg { ref args } => commands::sg::run(args),
+        Command::Callers {
+            ref symbol,
+            ref path,
+        } => commands::callers::run(symbol, path.as_deref()),
+        Command::Deps { ref file } => commands::deps::run(file),
+        Command::Diff {
+            ref symbol,
+            ref path,
+        } => commands::diff::run(symbol, path.as_deref()),
+        Command::Outline { ref path } => commands::outline::run(path.as_deref()),
+        Command::Types {
+            ref symbol,
+            ref path,
+            depth,
+        } => commands::types::run(symbol, path.as_deref(), depth),
+        Command::Scope { ref file, line } => commands::scope::run(file, line),
     };
 
     match result {

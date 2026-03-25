@@ -1,6 +1,13 @@
+pub mod callers;
+pub mod deps;
+pub mod diff;
 pub mod init;
 pub mod jump;
 pub mod list;
+pub mod outline;
 pub mod read;
 pub mod refs;
+pub mod scope;
 pub mod sg;
+pub mod tree;
+pub mod types;

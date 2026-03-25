@@ -18,7 +18,7 @@ pub fn run(file: &Path) -> Result<()> {
     }
 
     for def in &defs {
-        let skeleton = formatter::format_skeleton_line(&def.text, def.start_line);
+        let skeleton = formatter::format_skeleton_line(&def.text, def.start_line, def.depth);
         println!("{skeleton}");
     }
 

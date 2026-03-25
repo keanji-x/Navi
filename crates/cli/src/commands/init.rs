@@ -2,8 +2,11 @@ use anyhow::Result;
 use std::fs;
 use std::path::Path;
 
-const SKILL_CONTENT: &str = r#"---
+const SKILL_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+const SKILL_TEMPLATE: &str = r#"---
 description: How to use the Navi CLI for code navigation
+navi-version: $$VERSION$$
 ---
 
 # Navi — Headless Code Navigation CLI
@@ -102,20 +105,75 @@ Navi supports 26+ languages including: Rust, TypeScript, JavaScript, Python, Go,
 4. **Slice** → `navi read <file> <range>` to grab exact lines for diff/patch
 "#;
 
+fn skill_content() -> String {
+    SKILL_TEMPLATE.replace("$$VERSION$$", SKILL_VERSION)
+}
+
+/// Extract the navi-version value from SKILL.md frontmatter.
+fn extract_version(content: &str) -> Option<&str> {
+    for line in content.lines() {
+        if let Some(version) = line.strip_prefix("navi-version:") {
+            return Some(version.trim());
+        }
+        // Stop searching after frontmatter ends
+        if line == "---" && content.starts_with("---") && !line.is_empty() {
+            // We might be at the closing ---
+            let mut seen_open = false;
+            for l in content.lines() {
+                if l == "---" && !seen_open {
+                    seen_open = true;
+                    continue;
+                }
+                if l == "---" && seen_open {
+                    break;
+                }
+            }
+        }
+    }
+    None
+}
+
 pub fn run(path: Option<&Path>) -> Result<()> {
     let base = path.unwrap_or_else(|| Path::new("."));
     let agent_dir = base.join(".agent");
     let skill_dir = agent_dir.join("skills").join("navi");
     let skill_file = skill_dir.join("SKILL.md");
+    let content = skill_content();
 
     if skill_file.exists() {
-        println!("Skill file already exists: {}", skill_file.display());
+        let existing = fs::read_to_string(&skill_file)?;
+        let existing_ver = extract_version(&existing);
+
+        if existing_ver == Some(SKILL_VERSION) {
+            println!(
+                "Skill file is up to date (v{}): {}",
+                SKILL_VERSION,
+                skill_file.display()
+            );
+            return Ok(());
+        }
+
+        // Version mismatch or missing — update
+        fs::write(&skill_file, &content)?;
+        match existing_ver {
+            Some(v) => println!(
+                "Updated Navi skill document ({v} → {SKILL_VERSION}): {}",
+                skill_file.display()
+            ),
+            None => println!(
+                "Updated Navi skill document (→ v{SKILL_VERSION}): {}",
+                skill_file.display()
+            ),
+        }
         return Ok(());
     }
 
     fs::create_dir_all(&skill_dir)?;
-    fs::write(&skill_file, SKILL_CONTENT)?;
+    fs::write(&skill_file, &content)?;
 
-    println!("Created Navi skill document at: {}", skill_file.display());
+    println!(
+        "Created Navi skill document (v{SKILL_VERSION}) at: {}",
+        skill_file.display()
+    );
     Ok(())
 }
