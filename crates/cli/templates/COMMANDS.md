@@ -77,13 +77,18 @@ navi read src/main.rs 10-25
 
 ---
 
-## 5. `navi tree [DIR]` — Recursive Directory Skeleton
+## 5. `navi tree [DIR] [--depth <N>]` — Recursive Directory Skeleton
 
 Recursively walk a directory and run `list` on every supported source file, producing a full project skeleton.
 
+| Flag | Description |
+|------|-------------|
+| `--depth <N>` | Max directory depth to recurse into (default: unlimited) |
+
 ```bash
 navi tree src/
-navi tree          # defaults to CWD
+navi tree --depth 2    # only recurse 2 levels deep
+navi tree              # defaults to CWD
 ```
 
 **When to use:** To get a bird's-eye view of all definitions across a codebase or subdirectory.

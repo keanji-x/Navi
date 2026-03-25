@@ -4,7 +4,7 @@ use std::path::Path;
 use crate::ast::engine::{collect_definitions, detect_lang, parse_file};
 use crate::formatter;
 
-pub fn run(path: Option<&Path>) -> Result<()> {
+pub fn run(path: Option<&Path>, max_depth: Option<usize>) -> Result<()> {
     let search_dir = path.unwrap_or_else(|| Path::new("."));
 
     if !search_dir.exists() {
@@ -15,11 +15,15 @@ pub fn run(path: Option<&Path>) -> Result<()> {
         return print_file_skeleton(search_dir);
     }
 
-    let walker = ignore::WalkBuilder::new(search_dir)
+    let mut builder = ignore::WalkBuilder::new(search_dir);
+    builder
         .hidden(true)
         .git_ignore(true)
-        .sort_by_file_path(|a, b| a.cmp(b))
-        .build();
+        .sort_by_file_path(|a, b| a.cmp(b));
+    if let Some(d) = max_depth {
+        builder.max_depth(Some(d));
+    }
+    let walker = builder.build();
 
     for entry in walker {
         let entry = entry?;

@@ -38,7 +38,7 @@ fn main() {
             commands::read::run(file, range)
         }
         Command::Init { ref path } => commands::init::run(path.as_deref()),
-        Command::Tree { ref path } => commands::tree::run(path.as_deref()),
+        Command::Tree { ref path, depth } => commands::tree::run(path.as_deref(), depth),
         Command::Sg { ref args } => commands::sg::run(args),
         Command::Callers {
             ref symbol,
