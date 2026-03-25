@@ -3,6 +3,51 @@ use std::path::Path;
 
 use crate::ast::engine::{detect_lang, extract_imports, parse_file};
 
+/// Walk up from a file to find the project root (directory containing `.git`).
+/// Falls back to CWD if no `.git` is found.
+fn find_project_root(start: &Path) -> std::path::PathBuf {
+    let abs = std::fs::canonicalize(start).unwrap_or_else(|_| start.to_path_buf());
+    let mut dir = if abs.is_file() {
+        abs.parent().map(|p| p.to_path_buf()).unwrap_or_else(|| std::path::PathBuf::from("."))
+    } else {
+        abs
+    };
+    loop {
+        if dir.join(".git").exists() {
+            return dir;
+        }
+        match dir.parent() {
+            Some(parent) if parent != dir => dir = parent.to_path_buf(),
+            _ => return std::path::PathBuf::from("."),
+        }
+    }
+}
+
+/// Check if an import source references a given file.
+/// Uses segment-boundary matching to avoid false positives with short stems.
+fn import_matches_file(import_source: &str, file_stem: &str, file_name: &str) -> bool {
+    if file_stem.is_empty() {
+        return false;
+    }
+    // Exact match
+    if import_source == file_stem || import_source == file_name {
+        return true;
+    }
+    // Rust-style: `::stem` or `::stem::`
+    if import_source.contains(&format!("::{file_stem}"))
+        || import_source.contains(&format!("::{file_stem}::"))
+    {
+        return true;
+    }
+    // JS/TS/Python-style: `/stem` or `./stem` at end of path
+    if import_source.ends_with(&format!("/{file_stem}"))
+        || import_source.ends_with(&format!("/{file_name}"))
+    {
+        return true;
+    }
+    false
+}
+
 pub fn run(file: &Path) -> Result<()> {
     if !file.exists() {
         anyhow::bail!("File does not exist: {}", file.display());
@@ -33,14 +78,14 @@ pub fn run(file: &Path) -> Result<()> {
     }
 
     // --- Reverse dependencies: who imports this file? ---
-    // Walk from the file's parent directory (or CWD) to find files that import this one
-    let search_dir = file.parent().unwrap_or_else(|| Path::new("."));
+    // Walk from project root to find all files that import this one
+    let search_dir = find_project_root(file);
     let file_stem = file.file_stem().and_then(|s| s.to_str()).unwrap_or("");
     let file_name = file.file_name().and_then(|s| s.to_str()).unwrap_or("");
 
     let mut imported_by: Vec<(String, usize, String)> = Vec::new();
 
-    let walker = ignore::WalkBuilder::new(search_dir)
+    let walker = ignore::WalkBuilder::new(&search_dir)
         .hidden(true)
         .git_ignore(true)
         .build();
@@ -58,12 +103,7 @@ pub fn run(file: &Path) -> Result<()> {
             let root2 = grep2.root();
             let their_imports = extract_imports(&root2, &source2);
             for imp in their_imports {
-                // Check if the import source references our file
-                // Match by file stem, file name, or path suffix
-                if imp.source.contains(file_stem)
-                    || imp.source.contains(file_name)
-                    || imp.source.ends_with(file_stem)
-                {
+                if import_matches_file(&imp.source, file_stem, file_name) {
                     imported_by.push((entry_path.display().to_string(), imp.line, imp.line_text));
                 }
             }

@@ -105,19 +105,28 @@ fn extract_package_name(file: &str, base: &Path) -> String {
     let relative = file.strip_prefix(&base_str).unwrap_or(file);
     let relative = relative.trim_start_matches('/');
 
-    // Extract first meaningful directory component as "package"
     let parts: Vec<&str> = relative.split('/').collect();
-    if parts.len() >= 2 {
-        // For monorepo: crates/cli/src/... → "crates/cli"
-        // For packages/foo/src/... → "packages/foo"
-        if (parts[0] == "crates" || parts[0] == "packages" || parts[0] == "libs")
-            && parts.len() >= 2
-        {
+    if parts.len() < 2 {
+        return "(root)".to_string();
+    }
+
+    // For monorepo structures: if the second-level dir contains a manifest, use first/second
+    // e.g. crates/cli/src/... → "crates/cli"
+    //      apps/web/pages/... → "apps/web"
+    if parts.len() >= 3 {
+        let candidate = base.join(parts[0]).join(parts[1]);
+        let has_manifest = candidate.join("Cargo.toml").exists()
+            || candidate.join("package.json").exists()
+            || candidate.join("go.mod").exists()
+            || candidate.join("pyproject.toml").exists()
+            || candidate.join("setup.py").exists()
+            || candidate.join("pom.xml").exists()
+            || candidate.join("build.gradle").exists();
+        if has_manifest {
             return format!("{}/{}", parts[0], parts[1]);
         }
-        // For src/commands/... → "src"
-        parts[0].to_string()
-    } else {
-        "(root)".to_string()
     }
+
+    // Fallback: use first directory segment
+    parts[0].to_string()
 }

@@ -29,6 +29,7 @@ pub fn run(file: &Path, line: usize) -> Result<()> {
 
     let (grep, source) = parse_file(file)?;
     let root = grep.root();
+    let line = line.max(1); // clamp to 1-indexed minimum
     let lines: Vec<&str> = source.lines().collect();
     // Convert to 0-based and clamp to last valid line (editors may report cursor at EOF)
     let target_line = line.saturating_sub(1).min(lines.len().saturating_sub(1));

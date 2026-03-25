@@ -12,10 +12,11 @@ pub fn run(symbol: &str, path: Option<&Path>, max_depth: usize) -> Result<()> {
     }
 
     let mut visited: HashSet<String> = HashSet::new();
-    expand_type(symbol, search_dir, max_depth, 0, &mut visited)?;
+    let mut found = false;
+    expand_type(symbol, search_dir, max_depth, 0, &mut visited, &mut found)?;
 
-    if visited.is_empty() {
-        println!("No results found for '{symbol}'");
+    if !found {
+        println!("No type definition found for '{symbol}'");
     }
 
     Ok(())
@@ -27,6 +28,7 @@ fn expand_type(
     max_depth: usize,
     current_depth: usize,
     visited: &mut HashSet<String>,
+    found: &mut bool,
 ) -> Result<()> {
     if visited.contains(symbol) {
         return Ok(());
@@ -42,6 +44,7 @@ fn expand_type(
                 max_depth,
                 current_depth,
                 visited,
+                found,
             )?;
         }
     } else {
@@ -66,6 +69,7 @@ fn expand_type(
                 max_depth,
                 current_depth,
                 visited,
+                found,
             )?;
         }
     }
@@ -80,6 +84,7 @@ fn process_type_file(
     max_depth: usize,
     current_depth: usize,
     visited: &mut HashSet<String>,
+    found: &mut bool,
 ) -> Result<()> {
     let (grep, source) = parse_file(entry_path)?;
     let root = grep.root();
@@ -89,6 +94,7 @@ fn process_type_file(
     for def in &defs {
         if let Some(ref name) = def.name {
             if name == symbol {
+                *found = true;
                 let file_str = entry_path.display().to_string();
                 let lines: Vec<&str> = source.lines().collect();
 
@@ -130,6 +136,7 @@ fn process_type_file(
                                 max_depth,
                                 current_depth + 1,
                                 visited,
+                                found,
                             );
                         }
                     }

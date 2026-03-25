@@ -62,16 +62,26 @@ fn main() {
         Ok(()) => process::exit(0),
         Err(e) => {
             let err_str = format!("{e:#}");
-            if err_str.contains("Cannot read file") || err_str.contains("does not exist") {
-                eprintln!("Error: {e}");
+            eprintln!("Error: {e}");
+
+            // Exit 1: file/path errors
+            if err_str.contains("Cannot read file")
+                || err_str.contains("does not exist")
+                || err_str.contains("Unsupported file")
+                || err_str.contains("Path does not exist")
+            {
                 process::exit(1);
-            } else if err_str.contains("Invalid range") || err_str.contains("Invalid start") {
-                eprintln!("Error: {e}");
-                process::exit(2);
-            } else {
-                eprintln!("Error: {e}");
-                process::exit(3);
             }
+            // Exit 2: argument/usage errors
+            if err_str.contains("Invalid range")
+                || err_str.contains("Invalid start")
+                || err_str.contains("must be")
+                || err_str.contains("beyond end of file")
+            {
+                process::exit(2);
+            }
+            // Exit 3: internal/AST errors
+            process::exit(3);
         }
     }
 }

@@ -111,22 +111,20 @@ fn skill_content() -> String {
 
 /// Extract the navi-version value from SKILL.md frontmatter.
 fn extract_version(content: &str) -> Option<&str> {
+    let mut in_frontmatter = false;
     for line in content.lines() {
-        if let Some(version) = line.strip_prefix("navi-version:") {
-            return Some(version.trim());
+        if line == "---" {
+            if !in_frontmatter {
+                in_frontmatter = true;
+                continue;
+            } else {
+                // Closing --- reached, stop searching
+                break;
+            }
         }
-        // Stop searching after frontmatter ends
-        if line == "---" && content.starts_with("---") && !line.is_empty() {
-            // We might be at the closing ---
-            let mut seen_open = false;
-            for l in content.lines() {
-                if l == "---" && !seen_open {
-                    seen_open = true;
-                    continue;
-                }
-                if l == "---" && seen_open {
-                    break;
-                }
+        if in_frontmatter {
+            if let Some(version) = line.strip_prefix("navi-version:") {
+                return Some(version.trim());
             }
         }
     }
