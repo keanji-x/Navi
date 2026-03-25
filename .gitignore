@@ -1,0 +1,23 @@
+# Build artifacts
+/target/
+debug/
+*.d
+*.rlib
+*.rmeta
+*.so
+*.dylib
+*.dll
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Generated skill docs (created by `navi init`)
+.agent/
