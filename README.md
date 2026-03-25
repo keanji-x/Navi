@@ -48,83 +48,24 @@ Any AI agent that scans `.agent/skills/` will automatically discover how to use 
 
 ## Commands
 
-### `navi list <FILE>` — File Skeleton
+| Command | Purpose |
+|---------|---------|
+| `navi list <FILE>` | Extract file skeleton (collapsed bodies) |
+| `navi jump <SYMBOL>` | Jump to symbol definition |
+| `navi refs <SYMBOL>` | Find all references to a symbol |
+| `navi read <FILE> <RANGE>` | Read exact line range |
+| `navi tree [DIR]` | Recursive directory skeleton |
+| `navi outline [DIR]` | Project architecture overview |
+| `navi callers <SYMBOL>` | Find call-sites (excludes imports) |
+| `navi deps <FILE>` | Show file import/reverse-import graph |
+| `navi types <SYMBOL>` | Recursively expand type definitions |
+| `navi scope <FILE> <LINE>` | Show enclosing scope at a line |
+| `navi diff <SYMBOL>` | Git diff filtered to a symbol |
+| `navi sg [ARGS...]` | Passthrough to ast-grep CLI |
+| `navi init [DIR]` | Write/update AI skill documents |
 
-Extract all definitions with bodies collapsed. Lets the AI understand a file's structure without consuming thousands of tokens.
+> 📖 Full command reference with examples and flags: [COMMANDS.md](crates/cli/templates/COMMANDS.md)
 
-```
-$ navi list src/auth/user_service.ts
-
-File: src/auth/user_service.ts
-  12: export interface User { ... }
-  25: export class UserService { ... }
-  30:   public async login(req: LoginReq): Promise<Token> { ... }
-  88:   private hashPassword(pwd: string): string { ... }
-```
-
-### `navi jump <SYMBOL> [--path <DIR>]` — Jump to Definition
-
-Find a symbol's complete source with ±3 lines of context.
-
-```
-$ navi jump login --path src/
-
-Found definition for 'login' in src/auth/user_service.ts:
-  28:   // Authenticates a user and returns a JWT token
-  29:   @TrackActivity()
-  30:   public async login(req: LoginReq): Promise<Token> {
-  31:       const user = await this.db.find(req.username);
-  32:       if (!user) throw new Error("Not found");
-  33:       return generateToken(user);
-  34:   }
-```
-
-### `navi refs <SYMBOL> [--path <DIR>]` — Find References
-
-Locate every usage of a symbol across the codebase. Assess blast radius before refactoring.
-
-```
-$ navi refs login --path src/
-
-Found 3 references for 'login':
-- src/api/routes.ts: 45 | const token = await userService.login(req.body);
-- src/tests/auth.test.ts: 12 | const res = await service.login(mockUser);
-- src/auth/user_service.ts: 30 | public async login(req: LoginReq): Promise<Token> {
-```
-
-### `navi read <FILE> <START-END>` — Read Line Range
-
-Read exact lines. No AST — just raw text with line numbers.
-
-```
-$ navi read src/main.rs 10-25
-```
-
-### `navi init [--path <DIR>]` — Generate AI Skill Doc
-
-Create `.agent/skills/navi/SKILL.md` so AI agents can discover and learn Navi automatically.
-
-```
-$ navi init
-Created Navi skill document at: ./.agent/skills/navi/SKILL.md
-```
-
-### `navi sg [ARGS...]` — ast-grep Passthrough
-
-Direct access to the full [ast-grep](https://ast-grep.github.io/) CLI. All arguments are forwarded as-is.
-
-```bash
-# Structural search: find all function definitions
-navi sg run -p 'fn $NAME' -l rust src/
-
-# Pattern with rewrite
-navi sg run -p 'unwrap()' -r 'expect("TODO")' -l rust src/
-
-# Use ast-grep's scan, test, and all other commands
-navi sg scan
-navi sg test
-navi sg --help    # Full ast-grep help
-```
 
 ## Exit Codes
 
