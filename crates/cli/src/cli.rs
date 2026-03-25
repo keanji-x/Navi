@@ -44,13 +44,11 @@ pub enum Command {
     /// Initialize Navi skill document in .agent/skills/navi/
     Init {
         /// Optional base directory (defaults to CWD)
-        #[arg(long)]
         path: Option<PathBuf>,
     },
     /// Recursively list skeleton of all files in a directory
     Tree {
         /// Optional directory to scan (defaults to CWD)
-        #[arg(long)]
         path: Option<PathBuf>,
     },
     /// Passthrough to ast-grep CLI (run, scan, test, etc.)
@@ -84,7 +82,6 @@ pub enum Command {
     /// Show project-level architecture overview with package dependencies
     Outline {
         /// Optional directory to scan (defaults to CWD)
-        #[arg(long)]
         path: Option<PathBuf>,
     },
     /// Recursively expand a type and its referenced types
