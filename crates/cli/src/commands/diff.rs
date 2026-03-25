@@ -95,13 +95,13 @@ fn get_git_diff(file: &str) -> Result<String> {
         .output()
         .with_context(|| "Failed to run git diff")?;
 
-    // Also try unstaged diff if HEAD diff is empty
+    // Also try staged diff if HEAD diff is empty (e.g. all changes are staged)
     let diff_str = String::from_utf8_lossy(&output.stdout).to_string();
     if diff_str.is_empty() {
         let output2 = Command::new("git")
-            .args(["diff", "--unified=3", "--", file])
+            .args(["diff", "--cached", "--unified=3", "--", file])
             .output()
-            .with_context(|| "Failed to run git diff")?;
+            .with_context(|| "Failed to run git diff --cached")?;
         return Ok(String::from_utf8_lossy(&output2.stdout).to_string());
     }
     Ok(diff_str)
@@ -114,7 +114,7 @@ fn filter_hunks_for_range(diff: &str, sym_start: usize, sym_end: usize) -> Strin
     let mut hunk_new_start: usize = 0;
     let mut hunk_new_end: usize = 0;
     let mut in_hunk = false;
-    let mut current_new_line: usize = 0;
+    let mut _current_new_line: usize = 0;
 
     for line in diff.lines() {
         if line.starts_with("@@") {
@@ -128,7 +128,7 @@ fn filter_hunks_for_range(diff: &str, sym_start: usize, sym_end: usize) -> Strin
             if let Some((new_start, new_count)) = parse_hunk_header(line) {
                 hunk_new_start = new_start.saturating_sub(1); // convert to 0-based
                 hunk_new_end = hunk_new_start + new_count.saturating_sub(1);
-                current_new_line = hunk_new_start;
+                _current_new_line = hunk_new_start;
                 current_hunk = format!("{line}\n");
                 in_hunk = true;
             }
@@ -137,8 +137,7 @@ fn filter_hunks_for_range(diff: &str, sym_start: usize, sym_end: usize) -> Strin
             current_hunk.push('\n');
 
             if line.starts_with('+') || line.starts_with(' ') {
-                current_new_line += 1;
-                hunk_new_end = current_new_line;
+                _current_new_line += 1;
             }
         }
     }

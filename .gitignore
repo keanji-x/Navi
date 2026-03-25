@@ -18,6 +18,3 @@ debug/
 # OS
 .DS_Store
 Thumbs.db
-
-# Generated skill docs (created by `navi init`)
-.agent/

@@ -1,6 +1,6 @@
 ---
 description: How to use the Navi CLI for code navigation
-navi-version: $$VERSION$$
+navi-version: 0.3.0
 ---
 
 # Navi — Headless Code Navigation CLI

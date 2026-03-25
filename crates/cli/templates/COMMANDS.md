@@ -6,7 +6,7 @@
 
 ## 1. `navi list <FILE>` — Extract File Skeleton
 
-Show all top-level definitions (functions, classes, interfaces, structs) in a file with bodies collapsed to `{ ... }`.
+Show all top-level definitions (functions, classes, interfaces, structs, `pub mod`, `use` declarations) in a file with bodies collapsed to `{ ... }`. Works well on re-export files like `mod.rs`.
 
 ```bash
 navi list src/auth/user_service.ts
@@ -69,8 +69,11 @@ Found 3 references for 'login':
 
 Read a precise slice of a file by line numbers (1-indexed, inclusive). No AST parsing — just raw lines.
 
+Supports both `-` and `:` as range separators:
+
 ```bash
 navi read src/main.rs 10-25
+navi read src/main.rs 10:25   # same result
 ```
 
 **When to use:** When you already know the exact lines you need.
@@ -167,7 +170,7 @@ navi scope src/main.rs 45
 
 ## 11. `navi diff <SYMBOL> [--path <DIR>]` — Symbol-Filtered Git Diff
 
-Show the git diff filtered to only the hunks that touch a specific symbol's definition.
+Show the git diff filtered to only the hunks that touch a specific symbol's definition. First checks uncommitted changes (`git diff HEAD`), then falls back to staged-only changes (`git diff --cached`).
 
 | Flag | Description |
 |------|-------------|

@@ -90,6 +90,10 @@ const DEFINITION_KINDS: &[&str] = &[
     "function_definition",
     // Export wrappers (we want the inner decls, but also catch top-level exports)
     "export_statement",
+    // Rust module declarations: `mod name;` and `pub mod name { ... }`
+    // Also `use_declaration` for re-export skeletons in mod.rs-style files
+    "mod_item",
+    "use_declaration",
 ];
 
 /// Check if a node kind is a definition.
@@ -233,6 +237,7 @@ const IMPORT_KINDS: &[&str] = &[
     "import_statement",      // TS/JS
     "import_declaration",    // Go
     "use_declaration",       // Rust
+    "mod_item",              // Rust: `mod name;` (internal module declaration)
     "import_from_statement", // Python (from x import y)
     "import_specification",  // TS/JS (named imports)
     "export_statement",      // TS/JS re-exports
@@ -281,6 +286,12 @@ pub fn extract_imports(
             if kind == "use_declaration"
                 && (nk == "scoped_identifier" || nk == "use_as_clause" || nk == "scoped_use_list")
             {
+                module_source = Some(n.text().to_string());
+                break;
+            }
+            // Rust mod declarations: extract the module name identifier
+            // Only pick the first direct identifier child (the module name itself)
+            if kind == "mod_item" && nk == "identifier" {
                 module_source = Some(n.text().to_string());
                 break;
             }

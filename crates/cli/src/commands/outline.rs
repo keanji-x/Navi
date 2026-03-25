@@ -57,9 +57,15 @@ pub fn run(path: Option<&Path>) -> Result<()> {
         for file in pkg_files {
             if let Some(imports) = file_imports.get(file) {
                 for imp in imports {
-                    // Try to match import to a package
+                    // Try to match import to a package using segment-boundary matching.
+                    // Split on path separators and module delimiters, then check for exact
+                    // segment equality. This avoids "ast" matching "ast-grep" etc.
                     for other_pkg in &pkg_names {
-                        if other_pkg != pkg_name && imp.contains(other_pkg.as_str()) {
+                        if other_pkg != pkg_name
+                            && imp
+                                .split(['/', ':', '.', '-'])
+                                .any(|seg| seg == other_pkg.as_str())
+                        {
                             deps.insert(other_pkg.clone());
                         }
                     }

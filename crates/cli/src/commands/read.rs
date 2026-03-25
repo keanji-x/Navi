@@ -18,11 +18,13 @@ pub fn run(file: &Path, range: &str) -> Result<()> {
     Ok(())
 }
 
-/// Parse a range string like "10-20" into (start, end) as 1-indexed.
+/// Parse a range string like "10-20" or "10:20" into (start, end) as 1-indexed.
 fn parse_range(range: &str) -> Result<(usize, usize)> {
-    let parts: Vec<&str> = range.split('-').collect();
+    // Support both '-' and ':' as separators (e.g. "10-20" or "10:20")
+    let sep = if range.contains('-') { '-' } else { ':' };
+    let parts: Vec<&str> = range.splitn(2, sep).collect();
     if parts.len() != 2 {
-        bail!("Invalid range format '{range}'. Expected START-END (e.g., 10-20)");
+        bail!("Invalid range format '{range}'. Expected START-END (e.g., 10-20 or 10:20)");
     }
 
     let start: usize = parts[0]
