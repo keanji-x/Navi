@@ -56,6 +56,20 @@ fn main() {
             depth,
         } => commands::types::run(symbol, path.as_deref(), depth),
         Command::Scope { ref file, line } => commands::scope::run(file, line),
+        Command::External(args) => {
+            // Fallback: forward unknown commands to system shell
+            let (cmd, cmd_args) = args.split_first().expect("external subcommand requires a command name");
+            let status = process::Command::new(cmd)
+                .args(cmd_args)
+                .status();
+            match status {
+                Ok(s) => process::exit(s.code().unwrap_or(1)),
+                Err(e) => {
+                    eprintln!("navi: command not found: {cmd} ({e})");
+                    process::exit(127);
+                }
+            }
+        }
     };
 
     match result {

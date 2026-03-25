@@ -2,7 +2,11 @@ use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
 #[derive(Parser)]
-#[command(name = "navi", about = "Headless code navigation CLI for AI agents")]
+#[command(
+    name = "navi",
+    about = "Headless code navigation CLI for AI agents",
+    allow_external_subcommands = true
+)]
 pub struct NaviCli {
     #[command(subcommand)]
     pub command: Command,
@@ -102,4 +106,7 @@ pub enum Command {
         /// Line number (1-indexed)
         line: usize,
     },
+    /// Fallback: forward unknown commands to system shell
+    #[command(external_subcommand)]
+    External(Vec<String>),
 }
