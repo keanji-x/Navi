@@ -10,16 +10,16 @@ pub fn run(file: &Path) -> Result<()> {
     let defs = collect_definitions(&root);
 
     let file_str = file.display().to_string();
-    println!("File: {}", file_str);
+    println!("File: {file_str}");
 
     if defs.is_empty() {
-        println!("No results found for '{}'", file_str);
+        println!("No results found for '{file_str}'");
         return Ok(());
     }
 
     for def in &defs {
         let skeleton = formatter::format_skeleton_line(&def.text, def.start_line);
-        println!("{}", skeleton);
+        println!("{skeleton}");
     }
 
     Ok(())

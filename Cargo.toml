@@ -1,21 +1,3 @@
-[package]
-name = "navi-code"
-version = "0.1.0"
-edition = "2021"
-description = "Headless code navigation CLI for AI agents — zero noise, token-friendly, line-number-aware"
-license = "MIT"
-repository = "https://github.com/keanji-x/navi"
-readme = "README.md"
-keywords = ["cli", "ast", "code-navigation", "ai-agent", "tree-sitter"]
-categories = ["command-line-utilities", "development-tools"]
-
-[[bin]]
-name = "navi"
-path = "src/main.rs"
-
-[dependencies]
-clap = { version = "4", features = ["derive"] }
-anyhow = "1.0"
-ast-grep-core = "0.42"
-ast-grep-language = "0.42"
-ignore = "0.4"
+[workspace]
+members = ["crates/cli"]
+resolver = "2"

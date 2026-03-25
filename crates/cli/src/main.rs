@@ -37,20 +37,21 @@ fn main() {
             commands::read::run(file, range)
         }
         Command::Init { ref path } => commands::init::run(path.as_deref()),
+        Command::Sg { ref args } => commands::sg::run(args),
     };
 
     match result {
         Ok(()) => process::exit(0),
         Err(e) => {
-            let err_str = format!("{:#}", e);
+            let err_str = format!("{e:#}");
             if err_str.contains("Cannot read file") || err_str.contains("does not exist") {
-                eprintln!("Error: {}", e);
+                eprintln!("Error: {e}");
                 process::exit(1);
             } else if err_str.contains("Invalid range") || err_str.contains("Invalid start") {
-                eprintln!("Error: {}", e);
+                eprintln!("Error: {e}");
                 process::exit(2);
             } else {
-                eprintln!("Error: {}", e);
+                eprintln!("Error: {e}");
                 process::exit(3);
             }
         }
