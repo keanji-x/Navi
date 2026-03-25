@@ -47,6 +47,13 @@ pub fn run(symbol: &str, path: Option<&Path>, show_all: bool) -> Result<()> {
         return Ok(());
     }
 
+    // Sort by relevance: shorter path (closer to search root) first, then alphabetically
+    matches.sort_by(|a, b| {
+        let depth_a = a.file.matches('/').count();
+        let depth_b = b.file.matches('/').count();
+        depth_a.cmp(&depth_b).then_with(|| a.file.cmp(&b.file))
+    });
+
     if show_all {
         // Print all definitions
         for m in &matches {

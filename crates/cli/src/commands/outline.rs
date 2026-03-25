@@ -76,6 +76,7 @@ pub fn run(path: Option<&Path>) -> Result<()> {
     let mut sorted_pkgs: Vec<&String> = packages.keys().collect();
     sorted_pkgs.sort();
 
+    let mut has_deps = false;
     for pkg in &sorted_pkgs {
         let file_count = packages[*pkg].len();
         let deps = pkg_deps.get(*pkg).cloned().unwrap_or_default();
@@ -85,9 +86,15 @@ pub fn run(path: Option<&Path>) -> Result<()> {
         if dep_list.is_empty() {
             println!("{pkg} ({file_count} files)");
         } else {
+            has_deps = true;
             let dep_str: Vec<&str> = dep_list.iter().map(|s| s.as_str()).collect();
             println!("{} ({} files) → {}", pkg, file_count, dep_str.join(", "));
         }
+    }
+
+    if has_deps {
+        println!();
+        println!("(→ = imports from)");
     }
 
     Ok(())
