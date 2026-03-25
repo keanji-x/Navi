@@ -56,22 +56,46 @@ fn main() {
             depth,
         } => commands::types::run(symbol, path.as_deref(), depth),
         Command::Scope { ref file, line } => commands::scope::run(file, line),
+        Command::External(args) => {
+            // Fallback: forward unknown commands to system shell
+            let (cmd, cmd_args) = args.split_first().expect("external subcommand requires a command name");
+            let status = process::Command::new(cmd)
+                .args(cmd_args)
+                .status();
+            match status {
+                Ok(s) => process::exit(s.code().unwrap_or(1)),
+                Err(e) => {
+                    eprintln!("navi: command not found: {cmd} ({e})");
+                    process::exit(127);
+                }
+            }
+        }
     };
 
     match result {
         Ok(()) => process::exit(0),
         Err(e) => {
             let err_str = format!("{e:#}");
-            if err_str.contains("Cannot read file") || err_str.contains("does not exist") {
-                eprintln!("Error: {e}");
+            eprintln!("Error: {e}");
+
+            // Exit 1: file/path errors
+            if err_str.contains("Cannot read file")
+                || err_str.contains("does not exist")
+                || err_str.contains("Unsupported file")
+                || err_str.contains("Path does not exist")
+            {
                 process::exit(1);
-            } else if err_str.contains("Invalid range") || err_str.contains("Invalid start") {
-                eprintln!("Error: {e}");
-                process::exit(2);
-            } else {
-                eprintln!("Error: {e}");
-                process::exit(3);
             }
+            // Exit 2: argument/usage errors
+            if err_str.contains("Invalid range")
+                || err_str.contains("Invalid start")
+                || err_str.contains("must be")
+                || err_str.contains("beyond end of file")
+            {
+                process::exit(2);
+            }
+            // Exit 3: internal/AST errors
+            process::exit(3);
         }
     }
 }

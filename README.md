@@ -27,7 +27,7 @@ cargo install ast-grep
 
 # 3. Initialize skill document for your AI agent
 cd your-project/
-navi init
+navi init .
 
 # Done! Your AI agent can now read .agent/skills/navi/SKILL.md
 ```
