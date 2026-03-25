@@ -155,7 +155,7 @@ Show a high-level project outline with package/crate organization and file count
 
 ```bash
 navi outline
-navi outline --path packages/
+navi outline packages/
 ```
 
 **When to use:** First command to run on an unfamiliar project to understand its structure.
