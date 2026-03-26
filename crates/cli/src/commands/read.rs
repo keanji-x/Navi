@@ -21,7 +21,28 @@ pub fn run(file: &Path, range: &str, hints: bool) -> Result<()> {
         let root = grep.root();
         let defs = collect_definitions(&root);
 
-        let def = defs.iter().find(|d| d.name.as_deref() == Some(range));
+        // Support dot-path: "Class.method" or "Struct.field"
+        let def = if range.contains('.') {
+            let parts: Vec<&str> = range.splitn(2, '.').collect();
+            let parent_name = parts[0];
+            let child_name = parts[1];
+            // Find parent definition
+            let parent = defs.iter().find(|d| d.name.as_deref() == Some(parent_name));
+            match parent {
+                Some(p) => {
+                    // Find child within parent's line range
+                    defs.iter().find(|d| {
+                        d.name.as_deref() == Some(child_name)
+                            && d.start_line >= p.start_line
+                            && d.end_line <= p.end_line
+                            && d.depth > p.depth
+                    })
+                }
+                None => None,
+            }
+        } else {
+            defs.iter().find(|d| d.name.as_deref() == Some(range))
+        };
 
         match def {
             Some(d) => {

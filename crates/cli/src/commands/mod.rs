@@ -12,6 +12,8 @@ pub mod outline;
 pub mod read;
 pub mod refs;
 pub mod scope;
+pub mod search;
 pub mod sg;
 pub mod tree;
 pub mod types;
+pub mod xref;

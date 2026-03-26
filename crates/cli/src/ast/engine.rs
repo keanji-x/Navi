@@ -397,6 +397,8 @@ const CALL_EXPRESSION_KINDS: &[&str] = &[
     "send",                  // Ruby (method call)
     "function_call_expr",    // Kotlin
     "invocation_expression", // C#
+    "new_expression",              // JS/TS: new Foo(...)
+    "object_creation_expression",  // Java: new Foo(...)
 ];
 
 /// Find all call-site references to a symbol (filtering out imports, type annotations, etc.).

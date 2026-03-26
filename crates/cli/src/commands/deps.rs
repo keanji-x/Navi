@@ -29,8 +29,23 @@ fn import_matches_file(import_source: &str, file_stem: &str, file_name: &str) ->
     if file_stem.is_empty() {
         return false;
     }
-    // Exact match
-    if import_source == file_stem || import_source == file_name {
+    // Strip common JS/TS extension variants from import source for matching
+    // e.g. `./drama/DramaDirector.js` → `./drama/DramaDirector`
+    let stripped = import_source
+        .strip_suffix(".js")
+        .or_else(|| import_source.strip_suffix(".ts"))
+        .or_else(|| import_source.strip_suffix(".jsx"))
+        .or_else(|| import_source.strip_suffix(".tsx"))
+        .or_else(|| import_source.strip_suffix(".mjs"))
+        .or_else(|| import_source.strip_suffix(".cjs"))
+        .unwrap_or(import_source);
+
+    // Exact match (with and without extension)
+    if import_source == file_stem
+        || import_source == file_name
+        || stripped == file_stem
+        || stripped == file_name
+    {
         return true;
     }
     // Rust-style: `::stem` or `::stem::`
@@ -39,9 +54,10 @@ fn import_matches_file(import_source: &str, file_stem: &str, file_name: &str) ->
     {
         return true;
     }
-    // JS/TS/Python-style: `/stem` or `./stem` at end of path
+    // JS/TS/Python-style: path ends with `/stem` (with or without extension)
     if import_source.ends_with(&format!("/{file_stem}"))
         || import_source.ends_with(&format!("/{file_name}"))
+        || stripped.ends_with(&format!("/{file_stem}"))
     {
         return true;
     }

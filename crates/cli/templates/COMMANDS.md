@@ -76,20 +76,21 @@ Found 3 references for 'login':
 
 ## 4. `navi read <FILE> <RANGE|SYMBOL> [--hints]` — Read Line Range or Symbol Body
 
-Read a precise slice of a file by line numbers (1-indexed, inclusive), or read the full body of a named symbol.
+Read a precise slice of a file by line numbers (1-indexed, inclusive), read the full body of a named symbol, or use dot-path notation to read a nested member.
 
 | Flag | Description |
 |------|-------------|
 | `--hints` | Show inline type annotations (IDE-style inlay hints) |
 
-Supports both `-` and `:` as range separators, and symbol names:
+Supports `-` and `:` as range separators, symbol names, and `Parent.child` dot-paths:
 
 ```bash
-navi read src/main.rs 10-25        # line range
-navi read src/main.rs 10:25        # same result
-navi read src/main.rs run          # reads the 'run' function body
-navi read src/engine.rs UserConfig # reads the 'UserConfig' struct
-navi read src/main.rs run --hints  # with inline type annotations
+navi read src/main.rs 10-25            # line range
+navi read src/main.rs 10:25            # same result
+navi read src/main.rs run              # reads the 'run' function body
+navi read src/engine.rs UserConfig     # reads the 'UserConfig' struct
+navi read src/engine.rs Struct.field   # reads just the 'field' inside 'Struct'
+navi read src/main.rs run --hints      # with inline type annotations
 ```
 
 With `--hints`, output includes type annotations extracted from AST:
@@ -100,13 +101,13 @@ With `--hints`, output includes type annotations extracted from AST:
   27:     search_dir: &Path,  // hint: search_dir : &Path
 ```
 
-**When to use:** Use line ranges when you know the exact lines. Use symbol names to skip the `list` → `read` two-step. Add `--hints` to see explicit type annotations inline, especially useful for Rust/TypeScript.
+**When to use:** Use line ranges when you know the exact lines. Use symbol names to skip the `list` → `read` two-step. Use `Parent.child` to disambiguate same-named symbols across classes. Add `--hints` for explicit type annotations.
 
 ---
 
 ## 5. `navi tree [DIR] [--depth <N>] [-n <N>]` — Recursive Directory Skeleton
 
-Recursively walk a directory and run `list` on every supported source file, producing a full project skeleton.
+Recursively walk a directory and list all supported source files. For small directories (≤20 files), shows full skeleton; for large directories, shows compact mode with file name and symbol count.
 
 | Flag | Description |
 |------|-------------|
@@ -120,7 +121,17 @@ navi tree -n 20        # auto-increase depth until at least 20 files shown
 navi tree              # defaults to CWD
 ```
 
-**When to use:** To get a bird's-eye view of all definitions across a codebase or subdirectory. Use `-n` when you want to ensure meaningful coverage without guessing depth.
+Compact mode output (>20 files):
+```
+  src/commands/callers.rs (2 symbols)
+  src/commands/deps.rs (3 symbols)
+  src/commands/diff.rs (7 symbols)
+  ...
+(45 files, 128 symbols total)
+```
+
+**When to use:** To get a bird's-eye view of all definitions across a codebase or subdirectory. Use `-n` when you want to ensure meaningful coverage without guessing depth. Files with 0 symbols are always shown.
+
 ---
 
 ## 6. `navi outline [DIR]` — Project Architecture Overview
@@ -138,7 +149,7 @@ navi outline packages/
 
 ## 7. `navi callers <SYMBOL> [--path <DIR>]` — Find Call-Sites
 
-Find actual call-site usages of a symbol, excluding import statements and type annotations.
+Find actual call-site usages of a symbol, excluding import statements and type annotations. Also tracks `new ClassName(...)` instantiation.
 
 | Flag | Description |
 |------|-------------|
@@ -146,15 +157,16 @@ Find actual call-site usages of a symbol, excluding import statements and type a
 
 ```bash
 navi callers handleRequest --path src/
+navi callers ChatHandler   # also finds `new ChatHandler(...)`
 ```
 
-**When to use:** To see where a function is actually *invoked* (not just imported).
+**When to use:** To see where a function is actually *invoked* or a class *instantiated* (not just imported).
 
 ---
 
 ## 8. `navi deps <FILE>` — File Dependencies
 
-Show what a file imports and which other files import it (reverse dependencies).
+Show what a file imports and which other files import it (reverse dependencies). Correctly resolves path-based imports like `./drama/DramaDirector.js` and strips extension variants.
 
 ```bash
 navi deps src/auth/user_service.ts
@@ -181,53 +193,78 @@ navi types UserConfig --depth 2
 
 ---
 
-## 10. `navi scope <FILE> <LINE>` — Show Enclosing Scope
+## 10. `navi scope <FILE> <LINE|SYMBOL>` — Enclosing Scope / Symbol Children
 
-Given a file and line number, show the enclosing function/method scope that contains that line.
+Two modes:
+- **Line mode:** Given a line number, show the enclosing function/method scope chain.
+- **Symbol mode:** Given a symbol name, show all child symbols (fields, methods, nested types) — like a scoped Document Outline.
 
 ```bash
-navi scope src/main.rs 45
+navi scope src/main.rs 45             # enclosing scope for line 45
+navi scope src/engine.rs UserConfig   # children of UserConfig struct
 ```
 
-**When to use:** When you see a line number (e.g. from an error trace) and need to understand its context.
+Symbol mode output:
+```
+Children of 'UserConfig' (src/engine.rs):
+  UserConfig:12-25 | pub struct UserConfig {
+
+    name (field) :13 | pub name: String
+    email (field) :14 | pub email: String
+    settings (field) :15 | pub settings: Settings
+```
+
+**When to use:** Line mode when you see a line number (e.g. from an error trace). Symbol mode to see what's inside a class/struct/impl without reading the full body.
 
 ---
 
-## 11. `navi diff [SYMBOL] [--path <DIR>] [--since <N>]` — Symbol-Filtered Git Diff
+## 11. `navi diff [SYMBOL] [--path <DIR>] [--since <N>] [--changes]` — Symbol-Filtered Git Diff
 
-Two modes:
+Three modes:
 - **Symbol mode:** Show git diff filtered to hunks touching a specific symbol.
 - **Since mode:** Summarize all symbols changed in the last N commits.
+- **Changes mode:** (`--changes --since N`) Show a symbol-level changelog with `+` new / `~` modified / `-` deleted markers.
 
 | Flag | Description |
 |------|-------------|
 | `--path <DIR>` | Directory to search in (default: CWD) |
-| `--since <N>` | Show symbols changed in last N commits (summary mode) |
+| `--since <N>` | Scope to last N commits |
+| `--changes` | Show symbol-level changelog instead of line-level summary |
 
 ```bash
-navi diff login --path src/          # symbol-filtered diff
-navi diff --since 5                  # what symbols changed in last 5 commits
-navi diff --since 10 --path packages/ # scoped to a directory
+navi diff login --path src/                  # symbol-filtered diff
+navi diff --since 5                          # what symbols were touched
+navi diff --changes --since 5                # symbol-level changelog
+navi diff --changes --since 10 --path packages/
 ```
 
-**When to use:** Symbol mode to see what changed in a specific function. Since mode for a quick change summary ("what functions were touched recently?").
+Changes mode output:
+```
+src/auth/service.ts:
+  + doTravel (function, new)
+  ~ World.applyEffect (function, +15 lines)
+  - legacyLogin (function, deleted)
+```
+
+**When to use:** Symbol mode to see what changed in a specific function. Since mode for a quick change summary. Changes mode for a detailed symbol-level changelog.
 
 ---
 
 ## 12. `navi impls <TRAIT> [--path <DIR>]` — Find Implementations
 
-Find all implementations of a trait or interface across the codebase.
+Find all implementations of a trait or interface across the codebase. For TypeScript/JS, also finds `const x: Interface = { ... }` patterns.
 
 | Flag | Description |
 |------|-------------|
 | `--path <DIR>` | Directory to search in (default: CWD) |
 
 ```bash
-navi impls Iterator --path src/
-navi impls Serializable
+navi impls Iterator --path src/     # Rust: impl Iterator for ...
+navi impls Serializable             # Java: class X implements Serializable
+navi impls GameSystem               # TS: const x: GameSystem = { ... }
 ```
 
-**When to use:** To find all concrete types that implement a trait/interface, useful for understanding polymorphism.
+**When to use:** To find all concrete types that implement a trait/interface, including TS const-typed object literals.
 
 ---
 
@@ -278,7 +315,7 @@ Language-specific detection: TS/JS `export` statements, Rust `pub` items, Go upp
 
 ## 15. `navi flow <SYMBOL> [--path <DIR>] [--depth <N>]` — Caller Chain Graph
 
-Recursively expand who calls a function, up to N levels deep. Shows the complete call chain tree.
+Recursively expand who calls a function (including `new` instantiation), up to N levels deep. Shows the complete call chain tree.
 
 | Flag | Description |
 |------|-------------|
@@ -303,7 +340,65 @@ Cycle detection prevents infinite loops. Static name-based matching (no type-sys
 
 ---
 
-## 16. `navi sg [ARGS...]` — ast-grep Passthrough
+## 16. `navi search <PATTERN> [--path <DIR>] [--kind <KIND>]` — Global Symbol Search
+
+Search for symbol definitions by name (regex) with optional kind filter.
+
+| Flag | Description |
+|------|-------------|
+| `--path <DIR>` | Directory to search in (default: CWD) |
+| `--kind <KIND>` | Filter by kind: `function`, `method`, `class`, `struct`, `enum`, `interface`, `type`, `trait`, `const` |
+
+```bash
+navi search 'Resolver$' --kind function     # all functions ending in "Resolver"
+navi search 'Handler' --path src/           # anything named *Handler*
+navi search '^parse_' --kind function       # functions starting with "parse_"
+```
+
+```
+Found 5 symbols matching 'Resolver$':
+  src/graphql/user.ts:12 function UserResolver
+  src/graphql/post.ts:8 function PostResolver
+  src/graphql/comment.ts:15 function CommentResolver
+```
+
+**When to use:** To find all definitions matching a naming pattern, filtered by kind. More precise than `grep` because it only matches definition names, not all occurrences.
+
+---
+
+## 17. `navi xref <SYMBOL> [--path <DIR>]` — Cross-Reference Graph
+
+Show a complete cross-reference for a symbol: definitions, call-sites, and all references in one output.
+
+| Flag | Description |
+|------|-------------|
+| `--path <DIR>` | Directory to search in (default: CWD) |
+
+```bash
+navi xref detectLang --path src/
+```
+
+```
+Cross-references for 'detectLang':
+
+Definitions (1):
+  src/ast/engine.rs:7-44
+
+Callers (22):
+  src/commands/tree.rs:47 | detect_lang(entry_path).is_ok()
+  src/commands/deps.rs:115 | detect_lang(entry_path).is_err()
+  ...
+
+All references (35):
+  src/commands/tree.rs:4 | use crate::ast::engine::detect_lang;
+  ...
+```
+
+**When to use:** Instead of calling `jump` → `callers` → `refs` separately. One command for the full picture, like IDE "Find All References".
+
+---
+
+## 18. `navi sg [ARGS...]` — ast-grep Passthrough
 
 Forward arguments directly to the underlying `ast-grep` CLI (run, scan, test, etc.).
 
@@ -316,7 +411,7 @@ navi sg scan
 
 ---
 
-## 17. `navi init [DIR]` — Initialize Skill Documents
+## 19. `navi init [DIR]` — Initialize Skill Documents
 
 Create or update the Navi skill documents (`SKILL.md` and `COMMANDS.md`) in `.agent/skills/navi/`. Automatically detects version changes and updates in place.
 
