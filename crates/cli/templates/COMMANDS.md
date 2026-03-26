@@ -74,9 +74,13 @@ Found 3 references for 'login':
 
 ---
 
-## 4. `navi read <FILE> <RANGE|SYMBOL>` — Read Line Range or Symbol Body
+## 4. `navi read <FILE> <RANGE|SYMBOL> [--hints]` — Read Line Range or Symbol Body
 
 Read a precise slice of a file by line numbers (1-indexed, inclusive), or read the full body of a named symbol.
+
+| Flag | Description |
+|------|-------------|
+| `--hints` | Show inline type annotations (IDE-style inlay hints) |
 
 Supports both `-` and `:` as range separators, and symbol names:
 
@@ -85,9 +89,18 @@ navi read src/main.rs 10-25        # line range
 navi read src/main.rs 10:25        # same result
 navi read src/main.rs run          # reads the 'run' function body
 navi read src/engine.rs UserConfig # reads the 'UserConfig' struct
+navi read src/main.rs run --hints  # with inline type annotations
 ```
 
-**When to use:** Use line ranges when you know the exact lines. Use symbol names to skip the `list` → `read` two-step — go directly from knowing a name to reading its code.
+With `--hints`, output includes type annotations extracted from AST:
+
+```
+  25: fn expand_type(  // hint: expand_type → Result<()>
+  26:     symbol: &str,  // hint: symbol : &str
+  27:     search_dir: &Path,  // hint: search_dir : &Path
+```
+
+**When to use:** Use line ranges when you know the exact lines. Use symbol names to skip the `list` → `read` two-step. Add `--hints` to see explicit type annotations inline, especially useful for Rust/TypeScript.
 
 ---
 

@@ -44,6 +44,9 @@ pub enum Command {
         file: PathBuf,
         /// Line range in START-END format (1-indexed)
         range: String,
+        /// Show inline type hints (IDE-style annotations)
+        #[arg(long)]
+        hints: bool,
     },
     /// Initialize Navi skill document in .agent/skills/navi/
     Init {
