@@ -5,6 +5,11 @@ pub fn format_skeleton_line(text: &str, start_line: usize, depth: usize) -> Stri
     let first_line = text.lines().next().unwrap_or(text);
     let indent = "        ".repeat(depth); // 8 spaces per nesting level
 
+    // Array assignment: look for `= [` pattern (avoids matching Type[] annotations)
+    if let Some(eq_bracket) = first_line.find("= [") {
+        let signature = first_line[..eq_bracket].trim_end();
+        return format!("{:>4}: {}{} = [...]", start_line + 1, indent, signature);
+    }
     // Try to find the opening brace to truncate the body
     if let Some(brace_pos) = first_line.find('{') {
         let signature = first_line[..brace_pos].trim_end();

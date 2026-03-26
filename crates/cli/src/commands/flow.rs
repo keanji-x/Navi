@@ -65,8 +65,27 @@ pub fn run(symbol: &str, path: Option<&Path>, max_depth: usize, down: bool) -> R
                     indirect.len(),
                     if indirect.len() == 1 { "" } else { "s" }
                 );
-                for (file, line, line_text) in &indirect {
-                    println!("    {} {}:{} | {}", "~", file, line + 1, line_text.trim());
+                for r in &indirect {
+                    let ctx = match &r.enclosing_fn {
+                        Some(fn_name) => format!(" (in {fn_name})"),
+                        None => String::new(),
+                    };
+                    println!("    ~ {}:{} | {}{}", r.file, r.line + 1, r.line_text.trim(), ctx);
+                }
+                // Actionable hints: suggest tracing the enclosing functions
+                let fn_names: Vec<&str> = indirect
+                    .iter()
+                    .filter_map(|r| r.enclosing_fn.as_deref())
+                    .collect::<HashSet<_>>()
+                    .into_iter()
+                    .collect();
+                if !fn_names.is_empty() {
+                    let suggestions: Vec<String> = fn_names.iter()
+                        .take(3)
+                        .map(|n| format!("navi flow {n}"))
+                        .collect();
+                    println!("  hint: try `{}` to trace the registration path",
+                             suggestions.join("` or `"));
                 }
             }
         } else {
@@ -359,21 +378,30 @@ fn is_noise_reference(trimmed: &str, symbol: &str) -> bool {
     false
 }
 
+/// Indirect reference with context about where the symbol is used.
+struct IndirectRef {
+    file: String,
+    line: usize,
+    line_text: String,
+    enclosing_fn: Option<String>,
+}
+
 /// P2: Find references to a symbol that are NOT call-sites (indirect usage).
 /// These indicate the symbol is passed as a callback, stored in a variable, etc.
 fn find_indirect_references(
     symbol: &str,
     search_dir: &Path,
-) -> Result<Vec<(String, usize, String)>> {
-    let mut indirect: Vec<(String, usize, String)> = Vec::new();
+) -> Result<Vec<IndirectRef>> {
+    let mut indirect: Vec<IndirectRef> = Vec::new();
 
-    let process_file = |file_path: &Path, out: &mut Vec<(String, usize, String)>| -> Result<()> {
+    let process_file = |file_path: &Path, out: &mut Vec<IndirectRef>| -> Result<()> {
         if let Ok((grep, source)) = parse_file(file_path) {
             let root = grep.root();
             let all_refs = find_references_in_node(&root, symbol, &source);
             let call_refs = find_callers_in_node(&root, symbol, &source);
             let call_lines: HashSet<usize> = call_refs.iter().map(|r| r.line).collect();
             let file_str = file_path.display().to_string();
+            let defs = collect_definitions(&root);
 
             for r in &all_refs {
                 if call_lines.contains(&r.line) {
@@ -382,7 +410,13 @@ fn find_indirect_references(
                 if is_noise_reference(r.line_text.trim(), symbol) {
                     continue;
                 }
-                out.push((file_str.clone(), r.line, r.line_text.clone()));
+                let enclosing_fn = find_enclosing_function(&defs, r.line);
+                out.push(IndirectRef {
+                    file: file_str.clone(),
+                    line: r.line,
+                    line_text: r.line_text.clone(),
+                    enclosing_fn,
+                });
             }
         }
         Ok(())
