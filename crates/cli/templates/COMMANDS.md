@@ -6,7 +6,7 @@
 
 ## 1. `navi list <FILE>` — Extract File Skeleton
 
-Show all top-level definitions (functions, classes, interfaces, structs, `pub mod`, `use` declarations) in a file with bodies collapsed to `{ ... }`. Struct/class fields are displayed as nested items under their parent.
+Show all top-level definitions (functions, classes, interfaces, structs, `pub mod`, `use` declarations, `const` objects) in a file with bodies collapsed to `{ ... }`. Struct/class fields and const object properties are displayed as nested items under their parent.
 
 ```bash
 navi list src/auth/user_service.ts
@@ -22,7 +22,15 @@ File: src/auth/user_service.ts
   88:   private hashPassword(pwd: string): string { ... }
 ```
 
-**When to use:** First step to understand a file's structure before diving deeper. Fields are shown inline so you can see data shapes without `view_file`.
+`const` objects with type annotations also show their properties:
+```
+File: src/config.ts
+   1: export const config: AppConfig = { ... }
+   2:         port: ...
+   3:         host: ...
+```
+
+**When to use:** First step to understand a file's structure before diving deeper. Fields and const object properties are shown inline so you can see data shapes without `view_file`.
 
 ---
 
@@ -105,7 +113,7 @@ With `--hints`, output includes type annotations extracted from AST:
 
 ---
 
-## 5. `navi tree [DIR] [--depth <N>] [-n <N>]` — Recursive Directory Skeleton
+## 5. `navi tree [DIR] [--depth <N>] [-n <N>] [--all]` — Recursive Directory Skeleton
 
 Recursively walk a directory and list all supported source files. For small directories (≤20 files), shows full skeleton; for large directories, shows compact mode with file name and symbol count.
 
@@ -113,24 +121,31 @@ Recursively walk a directory and list all supported source files. For small dire
 |------|-------------|
 | `--depth <N>` | Max directory depth to recurse into (default: unlimited) |
 | `-n <N>` / `--n <N>` | Minimum number of files to display (auto-adjusts depth) |
+| `--all` | Show full directory structure including non-code files |
 
 ```bash
 navi tree src/
 navi tree --depth 2    # only recurse 2 levels deep
 navi tree -n 20        # auto-increase depth until at least 20 files shown
+navi tree --all        # full directory tree including configs, READMEs, etc.
 navi tree              # defaults to CWD
 ```
 
-Compact mode output (>20 files):
+`--all` mode output:
 ```
-  src/commands/callers.rs (2 symbols)
-  src/commands/deps.rs (3 symbols)
-  src/commands/diff.rs (7 symbols)
-  ...
-(45 files, 128 symbols total)
+src/
+  commands/
+    flow.rs  (3 symbols)
+    tree.rs  (4 symbols)
+  ast/
+    engine.rs  (8 symbols)
+Cargo.toml
+README.md
+
+(3 directories, 5 files, 3 code files, 15 symbols)
 ```
 
-**When to use:** To get a bird's-eye view of all definitions across a codebase or subdirectory. Use `-n` when you want to ensure meaningful coverage without guessing depth. Files with 0 symbols are always shown.
+**When to use:** Default mode for code structure. Use `--all` for first orientation to see the full project layout including non-code files (configs, docs, scripts). Use `-n` to ensure meaningful coverage.
 
 ---
 
@@ -315,19 +330,26 @@ Language-specific detection: TS/JS `export` statements, Rust `pub` items, Go upp
 
 ---
 
-## 15. `navi flow <SYMBOL> [--path <DIR>] [--depth <N>]` — Caller Chain Graph
+## 15. `navi flow <SYMBOL> [--path <DIR>] [--depth <N>] [--down]` — Call Chain Graph
 
-Recursively expand who calls a function (including `new` instantiation), up to N levels deep. Shows the complete call chain tree.
+Two modes:
+- **Caller chain (default):** Recursively expand who calls a function (including `new` instantiation), up to N levels deep.
+- **Callee chain (`--down`):** Trace what functions a given function calls, recursively.
+
+When no direct callers are found, automatically checks for **indirect references** (callback passing, re-exports, etc.) and reports them.
 
 | Flag | Description |
 |------|-------------|
 | `--path <DIR>` | Directory to search in (default: CWD) |
-| `--depth <N>` | Max depth of caller chain (default: 2) |
+| `--depth <N>` | Max depth of chain expansion (default: 2) |
+| `--down` | Trace callees instead of callers |
 
 ```bash
-navi flow handleRequest --path src/ --depth 3
+navi flow handleRequest --path src/ --depth 3    # who calls handleRequest?
+navi flow main --path src/ --down --depth 3      # what does main call?
 ```
 
+Caller chain output:
 ```
 handleRequest
   ← processRoute (src/api/router.ts:42)
@@ -336,9 +358,26 @@ handleRequest
   ← handleWebSocket (src/api/ws.ts:67)
 ```
 
+Callee chain output (`--down`):
+```
+main
+  → initConfig (src/config.ts:5)
+  → startServer (src/server.ts:12)
+    → listen (src/server.ts:45)
+  → setupRoutes (src/routes.ts:8)
+```
+
+Indirect reference hint (when no direct callers found):
+```
+helper
+  (no direct callers — 2 indirect references found, may be passed as callback/value)
+    ~ src/app.ts:15 | const callbacks = [helper];
+    ~ src/app.ts:20 | export default helper;
+```
+
 Cycle detection prevents infinite loops. Static name-based matching (no type-system resolution).
 
-**When to use:** To trace a request's lifecycle or understand how deeply a function is embedded in the call graph.
+**When to use:** Caller chain to trace a request's lifecycle. Callee chain (`--down`) to understand what a function does. Indirect hints prevent false "no callers" conclusions.
 
 ---
 
