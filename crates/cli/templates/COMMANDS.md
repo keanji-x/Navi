@@ -270,14 +270,16 @@ navi impls GameSystem               # TS: const x: GameSystem = { ... }
 
 ## 13. `navi grep <PATTERN> [--path <DIR>]` — AST-Aware Semantic Search
 
-Search for an identifier across the codebase and show the enclosing function/method for each match.
+Search for identifiers matching a pattern (supports regex) across the codebase and show the enclosing function/method for each match.The pattern is matched against AST identifier nodes using regex. If the pattern is not valid regex, it falls back to exact string matching.
 
 | Flag | Description |
 |------|-------------|
 | `--path <DIR>` | Directory to search in (default: CWD) |
 
 ```bash
-navi grep push_mailbox --path ./packages
+navi grep push_mailbox --path ./packages           # exact match
+navi grep 'chatReply|PushPublicChat' --path src/   # regex OR
+navi grep 'handle.*Request' --path src/            # regex wildcard
 ```
 
 ```
@@ -286,7 +288,7 @@ Found 4 matches for 'push_mailbox':
   packages/game/src/world.ts:128 | in tick | entity.push_mailbox(event);
 ```
 
-**When to use:** When you need grep results but want to know *which function* each match lives in, without cross-referencing manually.
+**When to use:** When you need grep results but want to know *which function* each match lives in, without cross-referencing manually. Use regex OR (`a|b|c`) to search multiple identifiers at once.
 
 ---
 

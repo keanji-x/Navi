@@ -73,7 +73,7 @@ fn run_line_scope(file: &Path, line: usize) -> Result<()> {
         println!(
             "{}{}:{} | {}",
             indent,
-            scope.kind,
+            humanize_kind(&scope.kind),
             scope.start_line + 1,
             first_line.trim()
         );
@@ -82,7 +82,8 @@ fn run_line_scope(file: &Path, line: usize) -> Result<()> {
     // Show the innermost scope's signature with more detail
     if let Some(innermost) = scopes.last() {
         println!();
-        println!("Innermost scope ({}):", innermost.kind);
+        println!("Innermost scope ({}):", humanize_kind(&innermost.kind));
+        // Print signature lines (first few lines of the scope)
         let sig_end = (innermost.start_line + 3).min(innermost.end_line);
         for i in innermost.start_line..=sig_end {
             if let Some(l) = lines.get(i) {
@@ -136,7 +137,7 @@ fn run_symbol_children(file: &Path, symbol: &str) -> Result<()> {
                 for child in &children {
                     let indent = "  ".repeat(child.depth - p.depth);
                     let name = child.name.as_deref().unwrap_or("?");
-                    let kind_label = if child.is_field { "field" } else { &child.kind };
+                    let kind_label = if child.is_field { "field" } else { humanize_kind(&child.kind) };
                     let first_line = child.text.lines().next().unwrap_or("").trim();
                     println!(
                         "  {}{} ({}) :{} | {}",
@@ -171,6 +172,23 @@ fn run_symbol_children(file: &Path, symbol: &str) -> Result<()> {
     }
 
     Ok(())
+}
+
+/// Map raw tree-sitter AST node kind to a human-readable label.
+fn humanize_kind(kind: &str) -> &str {
+    match kind {
+        "function_declaration" | "function_definition" | "function_item" => "fn",
+        "method_definition" | "method_declaration" => "method",
+        "function_signature_item" => "trait fn",
+        "arrow_function" => "arrow fn",
+        "generator_function_declaration" => "generator fn",
+        "class_declaration" | "class_definition" => "class",
+        "impl_item" => "impl",
+        "trait_item" => "trait",
+        "closure_expression" => "closure",
+        "lambda" => "lambda",
+        _ => kind,
+    }
 }
 
 struct ScopeInfo {

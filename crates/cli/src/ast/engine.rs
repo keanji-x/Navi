@@ -308,6 +308,36 @@ pub fn find_references_in_node(
     refs
 }
 
+/// Find all identifier nodes whose text matches a regex pattern.
+pub fn find_references_by_pattern(
+    node: &ast_grep_core::Node<ast_grep_core::tree_sitter::StrDoc<SupportLang>>,
+    pattern: &regex::Regex,
+    source: &str,
+) -> Vec<ReferenceInfo> {
+    let mut refs = Vec::new();
+    let lines: Vec<&str> = source.lines().collect();
+
+    for n in node.dfs() {
+        let kind = n.kind();
+        if (kind.as_ref() == "identifier"
+            || kind.as_ref() == "type_identifier"
+            || kind.as_ref() == "property_identifier"
+            || kind.as_ref() == "shorthand_property_identifier_pattern")
+            && pattern.is_match(n.text().as_ref())
+        {
+            let line = n.start_pos().line();
+            let col = n.start_pos().byte_point().1;
+            let line_text = lines.get(line).unwrap_or(&"").to_string();
+            refs.push(ReferenceInfo {
+                line,
+                column: col,
+                line_text,
+            });
+        }
+    }
+    refs
+}
+
 /// Node kinds that represent import/use declarations across languages.
 const IMPORT_KINDS: &[&str] = &[
     "import_statement",      // TS/JS

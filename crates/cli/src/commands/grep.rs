@@ -1,7 +1,8 @@
 use anyhow::Result;
+use regex::Regex;
 use std::path::Path;
 
-use crate::ast::engine::{collect_definitions, detect_lang, find_references_in_node, parse_file};
+use crate::ast::engine::{collect_definitions, detect_lang, find_references_by_pattern, find_references_in_node, parse_file};
 
 /// Result item for grep: file, match line (0-based), matched line text, enclosing function name.
 struct GrepHit {
@@ -18,10 +19,13 @@ pub fn run(pattern: &str, path: Option<&Path>) -> Result<()> {
         anyhow::bail!("Path does not exist: {}", search_dir.display());
     }
 
+    // Try to compile as regex; if it fails, fall back to exact match
+    let re = Regex::new(&format!("^(?:{pattern})$"));
+
     let mut hits: Vec<GrepHit> = Vec::new();
 
     if search_dir.is_file() {
-        collect_grep_in_file(search_dir, pattern, &mut hits)?;
+        collect_grep_in_file(search_dir, pattern, re.as_ref().ok(), &mut hits)?;
     } else {
         let walker = ignore::WalkBuilder::new(search_dir)
             .hidden(true)
@@ -37,7 +41,7 @@ pub fn run(pattern: &str, path: Option<&Path>) -> Result<()> {
             if detect_lang(entry_path).is_err() {
                 continue;
             }
-            let _ = collect_grep_in_file(entry_path, pattern, &mut hits);
+            let _ = collect_grep_in_file(entry_path, pattern, re.as_ref().ok(), &mut hits);
         }
     }
 
@@ -65,14 +69,18 @@ pub fn run(pattern: &str, path: Option<&Path>) -> Result<()> {
 fn collect_grep_in_file(
     file: &Path,
     pattern: &str,
+    re: Option<&Regex>,
     hits: &mut Vec<GrepHit>,
 ) -> Result<()> {
     let (grep, source) = parse_file(file)?;
     let root = grep.root();
     let file_str = file.display().to_string();
 
-    // Find all identifier references matching the pattern
-    let refs = find_references_in_node(&root, pattern, &source);
+    // Use regex matching if available, otherwise exact match
+    let refs = match re {
+        Some(regex) => find_references_by_pattern(&root, regex, &source),
+        None => find_references_in_node(&root, pattern, &source),
+    };
     if refs.is_empty() {
         return Ok(());
     }

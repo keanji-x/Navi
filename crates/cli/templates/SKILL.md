@@ -25,7 +25,7 @@ Navi is a Rust-based CLI tool built on `ast-grep` that provides AI-optimized cod
 | `navi scope <FILE> <LINE\|SYMBOL>` | Show enclosing scope at a line, or children of a symbol |
 | `navi diff [SYMBOL] [--since <N>] [--changes]` | Git diff filtered to a symbol, commit summary, or symbol-level changelog |
 | `navi impls <TRAIT> [--path <DIR>]` | Find implementations (Rust `impl`, TS `implements`, TS `const: Interface`) |
-| `navi grep <PATTERN> [--path <DIR>]` | AST-aware search (shows enclosing function) |
+| `navi grep <PATTERN> [--path <DIR>]` | AST-aware regex search (shows enclosing function) |
 | `navi exports <FILE\|DIR>` | List public API surface |
 | `navi flow <SYMBOL> [--path <DIR>] [--depth <N>]` | Recursive caller chain graph |
 | `navi search <PATTERN> [--path <DIR>] [--kind <K>]` | Global symbol search by regex + kind filter |
@@ -43,7 +43,7 @@ Navi is a Rust-based CLI tool built on `ast-grep` that provides AI-optimized cod
 6. **Trace types** → `navi types <symbol> --depth 2` to understand data shapes
 7. **Slice** → `navi read <file> <range>` for exact lines, `navi read <file> <symbol>` for a body, or `navi read <file> Class.method` for a nested member; add `--hints` for type annotations
 8. **Search** → `navi search 'Pattern' --kind function` to find symbols by name pattern and kind
-9. **Grep** → `navi grep <symbol>` to find matches with enclosing function context
+9. **Grep** → `navi grep 'pattern|or_pattern'` to find matches with enclosing function context (supports regex)
 10. **APIs** → `navi exports <dir>` to see public API surface
 11. **Diff** → `navi diff <symbol>` for recent changes; `navi diff --changes --since 5` for symbol-level changelog
 12. **Flow** → `navi flow <symbol> --depth 3` to trace the caller chain
