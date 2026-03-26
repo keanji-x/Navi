@@ -18,3 +18,4 @@ debug/
 # OS
 .DS_Store
 Thumbs.db
+Cargo.lock
