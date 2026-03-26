@@ -94,6 +94,9 @@ pub enum Command {
         /// Show symbols changed in the last N commits (summary mode)
         #[arg(long)]
         since: Option<usize>,
+        /// Show symbol-level changelog (+new/~modified/-deleted) instead of line-level summary
+        #[arg(long)]
+        changes: bool,
     },
     /// Find all implementations of a trait/interface
     Impls {
@@ -119,12 +122,12 @@ pub enum Command {
         #[arg(long, default_value = "1")]
         depth: usize,
     },
-    /// Show the enclosing scope (function/method) for a given file and line
+    /// Show the enclosing scope (function/method) for a given file and line, or children of a symbol
     Scope {
         /// Path to the source file
         file: PathBuf,
-        /// Line number (1-indexed)
-        line: usize,
+        /// Line number (1-indexed) or symbol name for reverse lookup
+        target: String,
     },
     /// AST-aware grep: search for an identifier and show enclosing function context
     Grep {
@@ -149,6 +152,25 @@ pub enum Command {
         /// Max depth of caller chain expansion (default: 2)
         #[arg(long, default_value = "2")]
         depth: usize,
+    },
+    /// Search for symbols by name pattern and optional kind filter
+    Search {
+        /// Regex pattern to match symbol names
+        pattern: String,
+        /// Optional directory to search in (defaults to CWD)
+        #[arg(long)]
+        path: Option<PathBuf>,
+        /// Filter by symbol kind (function, class, struct, interface, type, const, method)
+        #[arg(long)]
+        kind: Option<String>,
+    },
+    /// Show complete cross-references for a symbol (definition + callers + references)
+    Xref {
+        /// Symbol name to look up
+        symbol: String,
+        /// Optional directory to search in (defaults to CWD)
+        #[arg(long)]
+        path: Option<PathBuf>,
     },
     /// Fallback: forward unknown commands to system shell
     #[command(external_subcommand)]

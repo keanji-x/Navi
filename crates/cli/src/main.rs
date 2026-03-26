@@ -54,9 +54,14 @@ fn main() {
             ref symbol,
             ref path,
             since,
+            changes,
         } => {
             if let Some(n) = since {
-                commands::diff::run_since(n, path.as_deref())
+                if changes {
+                    commands::diff::run_changes(n, path.as_deref())
+                } else {
+                    commands::diff::run_since(n, path.as_deref())
+                }
             } else if let Some(ref sym) = symbol {
                 commands::diff::run(sym, path.as_deref())
             } else {
@@ -74,7 +79,7 @@ fn main() {
             ref path,
             depth,
         } => commands::types::run(symbol, path.as_deref(), depth),
-        Command::Scope { ref file, line } => commands::scope::run(file, line),
+        Command::Scope { ref file, ref target } => commands::scope::run(file, target),
         Command::Grep {
             ref pattern,
             ref path,
@@ -85,6 +90,15 @@ fn main() {
             ref path,
             depth,
         } => commands::flow::run(symbol, path.as_deref(), depth),
+        Command::Search {
+            ref pattern,
+            ref path,
+            ref kind,
+        } => commands::search::run(pattern, path.as_deref(), kind.as_deref()),
+        Command::Xref {
+            ref symbol,
+            ref path,
+        } => commands::xref::run(symbol, path.as_deref()),
         Command::External(args) => {
             // Fallback: forward unknown commands to system shell
             let (cmd, cmd_args) = args.split_first().expect("external subcommand requires a command name");

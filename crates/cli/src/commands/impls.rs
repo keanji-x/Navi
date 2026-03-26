@@ -117,6 +117,24 @@ fn collect_impls_in_file(
                     body_lines: body,
                 });
             }
+            // TS/JS: `const x: Interface = { ... }` or `let x: Interface = ...`
+            "lexical_declaration" | "variable_declaration" => {
+                if !contains_type_annotation(&node, symbol) {
+                    continue;
+                }
+
+                let start = node.start_pos().line();
+                let end = node.end_pos().line();
+                let header = build_impl_header(&lines, start, end);
+                let body = collect_skeleton_lines(&lines, start, end);
+
+                results.push(ImplResult {
+                    file: file_str.clone(),
+                    implementor: header,
+                    start_line: start,
+                    body_lines: body,
+                });
+            }
             _ => {}
         }
     }
@@ -192,6 +210,28 @@ fn contains_interface_impl(
             for inner in child.dfs() {
                 let ik = inner.kind().to_string();
                 if (ik == "type_identifier" || ik == "identifier") && inner.text().as_ref() == symbol
+                {
+                    return true;
+                }
+            }
+        }
+    }
+    false
+}
+
+/// Check if a variable/const declaration has a type annotation matching the symbol.
+/// Handles: `const x: GameSystem = { ... }`, `let y: MyInterface = ...`
+fn contains_type_annotation(
+    node: &ast_grep_core::Node<ast_grep_core::tree_sitter::StrDoc<ast_grep_language::SupportLang>>,
+    symbol: &str,
+) -> bool {
+    for child in node.dfs() {
+        let ck = child.kind().to_string();
+        if ck == "type_annotation" {
+            for inner in child.dfs() {
+                let ik = inner.kind().to_string();
+                if (ik == "type_identifier" || ik == "identifier")
+                    && inner.text().as_ref() == symbol
                 {
                     return true;
                 }

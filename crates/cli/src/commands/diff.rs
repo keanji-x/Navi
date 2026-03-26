@@ -168,6 +168,172 @@ pub fn run_since(n: usize, path: Option<&Path>) -> Result<()> {
     Ok(())
 }
 
+/// `navi diff --changes --since N` — symbol-level changelog showing +/~/- symbols.
+pub fn run_changes(n: usize, path: Option<&Path>) -> Result<()> {
+    let search_dir = path.unwrap_or_else(|| Path::new("."));
+    let diff_ref = format!("HEAD~{n}");
+
+    // Get list of changed files
+    let output = Command::new("git")
+        .args(["log", &format!("-{n}"), "--name-only", "--pretty=format:"])
+        .current_dir(search_dir)
+        .output()
+        .with_context(|| "Failed to run git log")?;
+
+    let file_list = String::from_utf8_lossy(&output.stdout);
+    let mut changed_files: Vec<String> = file_list
+        .lines()
+        .filter(|l| !l.is_empty())
+        .map(|l| l.to_string())
+        .collect();
+    changed_files.sort();
+    changed_files.dedup();
+
+    if changed_files.is_empty() {
+        println!("No files changed in last {n} commits");
+        return Ok(());
+    }
+
+    let mut found_any = false;
+
+    for file in &changed_files {
+        let file_path = if search_dir == Path::new(".") {
+            std::path::PathBuf::from(file)
+        } else {
+            search_dir.join(file)
+        };
+
+        if detect_lang(&file_path).is_err() {
+            continue;
+        }
+
+        // Get old file content from git
+        let old_output = Command::new("git")
+            .args(["show", &format!("{diff_ref}:{file}")])
+            .current_dir(search_dir)
+            .output();
+
+        let old_symbols = if let Ok(ref out) = old_output {
+            if out.status.success() {
+                let old_source = String::from_utf8_lossy(&out.stdout).to_string();
+                parse_symbols_from_source(&old_source, &file_path)
+            } else {
+                Vec::new() // File didn't exist before
+            }
+        } else {
+            Vec::new()
+        };
+
+        // Get new file symbols
+        let new_symbols = if file_path.exists() {
+            if let Ok((grep, _source)) = parse_file(&file_path) {
+                let root = grep.root();
+                let defs = collect_definitions(&root);
+                defs.iter()
+                    .filter_map(|d| {
+                        d.name.as_ref().map(|name| SymbolEntry {
+                            name: name.clone(),
+                            kind: normalize_kind_label(&d.kind).to_string(),
+                            lines: d.end_line - d.start_line + 1,
+                        })
+                    })
+                    .collect()
+            } else {
+                Vec::new()
+            }
+        } else {
+            Vec::new() // File was deleted
+        };
+
+        // Compare old vs new
+        let mut changes: Vec<String> = Vec::new();
+
+        for ns in &new_symbols {
+            match old_symbols.iter().find(|os| os.name == ns.name) {
+                Some(os) => {
+                    if os.lines != ns.lines {
+                        let delta = ns.lines as isize - os.lines as isize;
+                        let sign = if delta > 0 { "+" } else { "" };
+                        changes.push(format!(
+                            "  ~ {} ({}, {sign}{} lines)",
+                            ns.name, ns.kind, delta
+                        ));
+                    }
+                }
+                None => {
+                    changes.push(format!("  + {} ({}, new)", ns.name, ns.kind));
+                }
+            }
+        }
+
+        for os in &old_symbols {
+            if !new_symbols.iter().any(|ns| ns.name == os.name) {
+                changes.push(format!("  - {} ({}, deleted)", os.name, os.kind));
+            }
+        }
+
+        if !changes.is_empty() {
+            if found_any {
+                println!();
+            }
+            println!("{}:", file);
+            for c in &changes {
+                println!("{c}");
+            }
+            found_any = true;
+        }
+    }
+
+    if !found_any {
+        println!("No symbol-level changes found in last {n} commits");
+    }
+
+    Ok(())
+}
+
+struct SymbolEntry {
+    name: String,
+    kind: String,
+    lines: usize,
+}
+
+/// Parse symbols from source text without reading from disk.
+fn parse_symbols_from_source(source: &str, file_path: &Path) -> Vec<SymbolEntry> {
+    let lang = match crate::ast::engine::detect_lang(file_path) {
+        Ok(l) => l,
+        Err(_) => return Vec::new(),
+    };
+    let grep = ast_grep_core::AstGrep::new(source, lang);
+    let root = grep.root();
+    let defs = collect_definitions(&root);
+    defs.iter()
+        .filter_map(|d| {
+            d.name.as_ref().map(|name| SymbolEntry {
+                name: name.clone(),
+                kind: normalize_kind_label(&d.kind).to_string(),
+                lines: d.end_line - d.start_line + 1,
+            })
+        })
+        .collect()
+}
+
+fn normalize_kind_label(kind: &str) -> &str {
+    match kind {
+        "function_declaration" | "function_definition" | "function_item"
+        | "arrow_function" | "generator_function_declaration" => "function",
+        "method_definition" | "method_declaration" | "function_signature_item" => "method",
+        "class_declaration" | "class_definition" => "class",
+        "struct_item" => "struct",
+        "enum_item" => "enum",
+        "interface_declaration" => "interface",
+        "type_alias_declaration" | "type_item" => "type",
+        "trait_item" => "trait",
+        "impl_item" => "impl",
+        "lexical_declaration" | "variable_declaration" | "const_item" | "static_item" => "const",
+        _ => kind,
+    }
+}
+
 /// Extract the new-side line numbers that were changed from a unified diff.
 fn extract_changed_new_lines(diff: &str) -> Vec<usize> {
     let mut lines = Vec::new();
