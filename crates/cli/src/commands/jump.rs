@@ -20,9 +20,10 @@ pub fn run(symbol: &str, path: Option<&Path>, show_all: bool) -> Result<()> {
     }
 
     let mut matches: Vec<MatchInfo> = Vec::new();
+    let mut all_names: Vec<String> = Vec::new();
 
     if search_dir.is_file() {
-        collect_matches_in_file(search_dir, symbol, &mut matches)?;
+        collect_matches_in_file(search_dir, symbol, &mut matches, &mut all_names)?;
     } else {
         let walker = ignore::WalkBuilder::new(search_dir)
             .hidden(true)
@@ -38,12 +39,21 @@ pub fn run(symbol: &str, path: Option<&Path>, show_all: bool) -> Result<()> {
             if detect_lang(entry_path).is_err() {
                 continue;
             }
-            let _ = collect_matches_in_file(entry_path, symbol, &mut matches);
+            let _ = collect_matches_in_file(entry_path, symbol, &mut matches, &mut all_names);
         }
     }
 
     if matches.is_empty() {
-        println!("No results found for '{symbol}'");
+        // Fuzzy suggestion: find similar names
+        let suggestions = find_similar_names(&all_names, symbol, 5);
+        if suggestions.is_empty() {
+            println!("No results found for '{symbol}'");
+        } else {
+            println!("No results found for '{symbol}'. Did you mean:");
+            for (name, _score) in &suggestions {
+                println!("  - {name}");
+            }
+        }
         return Ok(());
     }
 
@@ -92,7 +102,12 @@ pub fn run(symbol: &str, path: Option<&Path>, show_all: bool) -> Result<()> {
     Ok(())
 }
 
-fn collect_matches_in_file(file: &Path, symbol: &str, matches: &mut Vec<MatchInfo>) -> Result<()> {
+fn collect_matches_in_file(
+    file: &Path,
+    symbol: &str,
+    matches: &mut Vec<MatchInfo>,
+    all_names: &mut Vec<String>,
+) -> Result<()> {
     let (grep, source) = parse_file(file)?;
     let root = grep.root();
     let defs = collect_definitions(&root);
@@ -100,6 +115,7 @@ fn collect_matches_in_file(file: &Path, symbol: &str, matches: &mut Vec<MatchInf
 
     for def in &defs {
         if let Some(ref name) = def.name {
+            all_names.push(name.clone());
             if name == symbol {
                 matches.push(MatchInfo {
                     file: file_str.clone(),
@@ -112,4 +128,25 @@ fn collect_matches_in_file(file: &Path, symbol: &str, matches: &mut Vec<MatchInf
     }
 
     Ok(())
+}
+
+/// Find definition names most similar to the query using Jaro-Winkler similarity.
+fn find_similar_names(all_names: &[String], query: &str, max: usize) -> Vec<(String, f64)> {
+    use std::collections::HashSet;
+    use strsim::jaro_winkler;
+
+    let mut seen = HashSet::new();
+    let mut scored: Vec<(String, f64)> = all_names
+        .iter()
+        .filter(|n| seen.insert(n.to_string())) // deduplicate
+        .map(|n| {
+            let score = jaro_winkler(&n.to_lowercase(), &query.to_lowercase());
+            (n.clone(), score)
+        })
+        .filter(|(_, score)| *score > 0.7) // threshold
+        .collect();
+
+    scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+    scored.truncate(max);
+    scored
 }

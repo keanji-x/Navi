@@ -1,6 +1,6 @@
 [package]
 name = "navi-cli"
-version = "0.3.0"
+version = "0.3.1"
 edition = "2021"
 description = "Headless code navigation CLI for AI agents — zero noise, token-friendly, line-number-aware"
 license = "MIT"
@@ -19,3 +19,4 @@ anyhow = "1.0"
 ast-grep-core = "0.42"
 ast-grep-language = "0.42"
 ignore = "0.4"
+strsim = "0.11"

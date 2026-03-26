@@ -6,7 +6,7 @@
 
 ## 1. `navi list <FILE>` — Extract File Skeleton
 
-Show all top-level definitions (functions, classes, interfaces, structs, `pub mod`, `use` declarations) in a file with bodies collapsed to `{ ... }`. Works well on re-export files like `mod.rs`.
+Show all top-level definitions (functions, classes, interfaces, structs, `pub mod`, `use` declarations) in a file with bodies collapsed to `{ ... }`. Struct/class fields are displayed as nested items under their parent.
 
 ```bash
 navi list src/auth/user_service.ts
@@ -15,18 +15,20 @@ navi list src/auth/user_service.ts
 ```
 File: src/auth/user_service.ts
   12: export interface User { ... }
+  13:         id: ...
+  14:         email: ...
   25: export class UserService { ... }
   30:   public async login(req: LoginReq): Promise<Token> { ... }
   88:   private hashPassword(pwd: string): string { ... }
 ```
 
-**When to use:** First step to understand a file's structure before diving deeper.
+**When to use:** First step to understand a file's structure before diving deeper. Fields are shown inline so you can see data shapes without `view_file`.
 
 ---
 
 ## 2. `navi jump <SYMBOL> [--path <DIR>] [--all]` — Jump to Definition
 
-Find and display the complete source code of a symbol definition with ±3 lines of context.
+Find and display the complete source code of a symbol definition with ±3 lines of context. If no exact match is found, suggests similar symbol names (fuzzy matching).
 
 | Flag | Description |
 |------|-------------|
@@ -38,7 +40,14 @@ navi jump login --path src/
 navi jump UserService --all
 ```
 
-**When to use:** To read the full implementation of an unfamiliar symbol.
+```
+# When no match found:
+No results found for 'set_confirmed_position'. Did you mean:
+  - set_position_state
+  - get_confirmed_position
+```
+
+**When to use:** To read the full implementation of an unfamiliar symbol. The fuzzy suggestions help when you misremember a name.
 
 ---
 
@@ -65,18 +74,20 @@ Found 3 references for 'login':
 
 ---
 
-## 4. `navi read <FILE> <START-END>` — Read Line Range
+## 4. `navi read <FILE> <RANGE|SYMBOL>` — Read Line Range or Symbol Body
 
-Read a precise slice of a file by line numbers (1-indexed, inclusive). No AST parsing — just raw lines.
+Read a precise slice of a file by line numbers (1-indexed, inclusive), or read the full body of a named symbol.
 
-Supports both `-` and `:` as range separators:
+Supports both `-` and `:` as range separators, and symbol names:
 
 ```bash
-navi read src/main.rs 10-25
-navi read src/main.rs 10:25   # same result
+navi read src/main.rs 10-25        # line range
+navi read src/main.rs 10:25        # same result
+navi read src/main.rs run          # reads the 'run' function body
+navi read src/engine.rs UserConfig # reads the 'UserConfig' struct
 ```
 
-**When to use:** When you already know the exact lines you need.
+**When to use:** Use line ranges when you know the exact lines. Use symbol names to skip the `list` → `read` two-step — go directly from knowing a name to reading its code.
 
 ---
 
@@ -184,7 +195,24 @@ navi diff login --path src/
 
 ---
 
-## 12. `navi sg [ARGS...]` — ast-grep Passthrough
+## 12. `navi impls <TRAIT> [--path <DIR>]` — Find Implementations
+
+Find all implementations of a trait or interface across the codebase.
+
+| Flag | Description |
+|------|-------------|
+| `--path <DIR>` | Directory to search in (default: CWD) |
+
+```bash
+navi impls Iterator --path src/
+navi impls Serializable
+```
+
+**When to use:** To find all concrete types that implement a trait/interface, useful for understanding polymorphism.
+
+---
+
+## 13. `navi sg [ARGS...]` — ast-grep Passthrough
 
 Forward arguments directly to the underlying `ast-grep` CLI (run, scan, test, etc.).
 
@@ -197,7 +225,7 @@ navi sg scan
 
 ---
 
-## 13. `navi init [DIR]` — Initialize Skill Documents
+## 14. `navi init [DIR]` — Initialize Skill Documents
 
 Create or update the Navi skill documents (`SKILL.md` and `COMMANDS.md`) in `.agent/skills/navi/`. Automatically detects version changes and updates in place.
 

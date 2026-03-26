@@ -121,6 +121,22 @@ pub fn extract_name(
     None
 }
 
+/// Node kinds that represent field declarations inside struct/class/interface types.
+const FIELD_KINDS: &[&str] = &[
+    "field_declaration",          // Rust, Go, C, C++
+    "field_definition",           // C++
+    "public_field_definition",    // JS/TS class fields
+    "property_declaration",       // TS class properties
+    "property_signature",         // TS interface properties
+    "enum_variant",               // Rust enum variants
+    "shorthand_property_identifier_pattern", // JS destructuring
+];
+
+/// Check if a node kind is a field declaration.
+fn is_field_kind(kind: &str) -> bool {
+    FIELD_KINDS.contains(&kind)
+}
+
 /// Information about a definition found in the AST.
 pub struct DefinitionInfo {
     pub name: Option<String>,
@@ -129,7 +145,9 @@ pub struct DefinitionInfo {
     pub start_line: usize, // 0-based
     pub end_line: usize,   // 0-based
     pub text: String,
-    pub depth: usize, // nesting depth: 0 = top-level, 1 = class member, etc.
+    pub depth: usize,    // nesting depth: 0 = top-level, 1 = class member, etc.
+    #[allow(dead_code)]
+    pub is_field: bool,  // true if this is a struct/class field rather than a method/type
 }
 
 /// Collect all top-level (and nested method) definitions from the AST.
@@ -158,6 +176,7 @@ fn collect_definitions_recursive(
             end_line,
             text: node.text().to_string(),
             depth,
+            is_field: false,
         });
 
         // Determine which node to recurse into for member extraction
@@ -171,17 +190,15 @@ fn collect_definitions_recursive(
 
         if is_container(&kind) {
             // Direct class/struct/impl/trait/interface — recurse into body
-            for child in node.children() {
-                collect_definitions_recursive(&child, defs, depth + 1);
-            }
+            // Also collect field declarations (may be nested inside
+            // field_declaration_list, class_body, etc.)
+            collect_members_recursive(node, defs, depth + 1);
         } else if kind == "export_statement" {
             // Export wrapper — look for the inner class/interface declaration and recurse
             for child in node.children() {
                 let child_kind = child.kind().to_string();
                 if is_container(&child_kind) {
-                    for grandchild in child.children() {
-                        collect_definitions_recursive(&grandchild, defs, depth + 1);
-                    }
+                    collect_members_recursive(&child, defs, depth + 1);
                 }
             }
         }
@@ -193,6 +210,49 @@ fn collect_definitions_recursive(
             collect_definitions_recursive(&child, defs, depth + 1);
         }
     }
+}
+
+/// Recursively scan a container node's children for field declarations and nested definitions.
+/// Handles wrapper nodes like `field_declaration_list`, `class_body`, `declaration_list`, etc.
+fn collect_members_recursive(
+    node: &ast_grep_core::Node<ast_grep_core::tree_sitter::StrDoc<SupportLang>>,
+    defs: &mut Vec<DefinitionInfo>,
+    depth: usize,
+) {
+    for child in node.children() {
+        let child_kind = child.kind().to_string();
+        if is_field_kind(&child_kind) {
+            collect_field(&child, defs, depth);
+        } else if is_definition_kind(&child_kind) {
+            collect_definitions_recursive(&child, defs, depth);
+        } else {
+            // Recurse into body/list wrapper nodes
+            collect_members_recursive(&child, defs, depth);
+        }
+    }
+}
+
+/// Collect a field declaration as a DefinitionInfo with is_field = true.
+fn collect_field(
+    node: &ast_grep_core::Node<ast_grep_core::tree_sitter::StrDoc<SupportLang>>,
+    defs: &mut Vec<DefinitionInfo>,
+    depth: usize,
+) {
+    let name = extract_name(node);
+    let start_line = node.start_pos().line();
+    let end_line = node.end_pos().line();
+    // Use the first line only for clean display
+    let full_text = node.text().to_string();
+    let first_line = full_text.lines().next().unwrap_or("").to_string();
+    defs.push(DefinitionInfo {
+        name,
+        kind: node.kind().to_string(),
+        start_line,
+        end_line,
+        text: first_line,
+        depth,
+        is_field: true,
+    });
 }
 
 /// Find all identifier nodes that match a given symbol name.
