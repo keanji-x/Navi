@@ -17,7 +17,7 @@ Navi is a Rust-based CLI tool built on `ast-grep` that provides AI-optimized cod
 | `navi jump <SYMBOL> [--path <DIR>] [--all]` | Jump to symbol definition (fuzzy suggestions on no match) |
 | `navi refs <SYMBOL> [--path <DIR>]` | Find all references to a symbol |
 | `navi read <FILE> <RANGE\|SYMBOL> [--hints]` | Read line range, symbol body, or `Parent.child` dot-path; `--hints` for type annotations |
-| `navi tree [DIR] [--depth <N>] [-n <N>]` | Recursive directory skeleton (compact mode for large dirs) |
+| `navi tree [DIR] [--depth <N>] [-n <N>] [--all]` | Recursive directory skeleton; `--all` shows full dir tree including non-code files |
 | `navi outline [DIR]` | Project architecture overview |
 | `navi callers <SYMBOL> [--path <DIR>]` | Find call-sites including `new Class(...)` instantiation |
 | `navi deps <FILE>` | Show file import/reverse-import graph (handles path-based imports) |
@@ -27,7 +27,7 @@ Navi is a Rust-based CLI tool built on `ast-grep` that provides AI-optimized cod
 | `navi impls <TRAIT> [--path <DIR>]` | Find implementations (Rust `impl`, TS `implements`, TS `const: Interface`) |
 | `navi grep <PATTERN> [--path <DIR>]` | AST-aware regex search (shows enclosing function) |
 | `navi exports <FILE\|DIR>` | List public API surface |
-| `navi flow <SYMBOL> [--path <DIR>] [--depth <N>]` | Recursive caller chain graph |
+| `navi flow <SYMBOL> [--path <DIR>] [--depth <N>] [--down]` | Caller chain (default) or callee chain (`--down`); shows indirect hints when no callers found |
 | `navi search <PATTERN> [--path <DIR>] [--kind <K>]` | Global symbol search by regex + kind filter |
 | `navi xref <SYMBOL> [--path <DIR>]` | Cross-reference graph (definition + callers + all refs) |
 | `navi sg [ARGS...]` | Passthrough to ast-grep CLI |
@@ -46,7 +46,7 @@ Navi is a Rust-based CLI tool built on `ast-grep` that provides AI-optimized cod
 9. **Grep** → `navi grep 'pattern|or_pattern'` to find matches with enclosing function context (supports regex)
 10. **APIs** → `navi exports <dir>` to see public API surface
 11. **Diff** → `navi diff <symbol>` for recent changes; `navi diff --changes --since 5` for symbol-level changelog
-12. **Flow** → `navi flow <symbol> --depth 3` to trace the caller chain
+12. **Flow** → `navi flow <symbol> --depth 3` to trace caller chain; `navi flow <symbol> --down` to trace callee chain
 13. **Scope** → `navi scope <file> <line>` for enclosing scope; `navi scope <file> ClassName` for child symbols
 
 ## Exit Codes
