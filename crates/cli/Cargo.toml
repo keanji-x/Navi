@@ -1,6 +1,6 @@
 [package]
 name = "navi-cli"
-version = "0.5.1"
+version = "0.5.2"
 edition = "2021"
 description = "Headless code navigation CLI for AI agents — zero noise, token-friendly, line-number-aware"
 license = "MIT"
