@@ -294,6 +294,10 @@ fn collect_const_object_members(
                 if vk == "object" || vk == "object_expression" {
                     collect_members_recursive(&value_node, defs, depth);
                 }
+                // Array literals: expand each element as a child
+                if vk == "array" || vk == "array_expression" {
+                    collect_array_element_members(&value_node, defs, depth);
+                }
                 // Also handle: { ... } as const / { ... } satisfies T
                 if vk == "as_expression" || vk == "satisfies_expression" {
                     for inner in value_node.children() {
@@ -301,10 +305,62 @@ fn collect_const_object_members(
                         if ik == "object" || ik == "object_expression" {
                             collect_members_recursive(&inner, defs, depth);
                         }
+                        if ik == "array" || ik == "array_expression" {
+                            collect_array_element_members(&inner, defs, depth);
+                        }
                     }
                 }
             }
         }
+    }
+}
+
+/// Expand array literal elements as child definitions.
+/// Object elements get their keys extracted; scalar elements are shown as-is.
+fn collect_array_element_members(
+    array_node: &ast_grep_core::Node<ast_grep_core::tree_sitter::StrDoc<SupportLang>>,
+    defs: &mut Vec<DefinitionInfo>,
+    depth: usize,
+) {
+    for child in array_node.children() {
+        let ck = child.kind().to_string();
+        if ck == "object" || ck == "object_expression" {
+            // Object element: extract as a named entry with its key fields
+            // Use the first "pair" key as the display name
+            let first_key = child.children().find(|c| c.kind().as_ref() == "pair")
+                .and_then(|pair| pair.field("key"))
+                .map(|k| k.text().to_string());
+            let start_line = child.start_pos().line();
+            let end_line = child.end_pos().line();
+            let full_text = child.text().to_string();
+            let first_line = full_text.lines().next().unwrap_or("").to_string();
+            defs.push(DefinitionInfo {
+                name: first_key,
+                kind: ck,
+                start_line,
+                end_line,
+                text: first_line,
+                depth,
+                is_field: true,
+            });
+        } else if ck == "identifier" || ck == "string" || ck == "string_fragment"
+            || ck == "number" || ck == "call_expression" || ck == "member_expression"
+            || ck == "new_expression"
+        {
+            // Scalar / reference element
+            let start_line = child.start_pos().line();
+            let text = child.text().to_string();
+            defs.push(DefinitionInfo {
+                name: Some(text.clone()),
+                kind: ck,
+                start_line,
+                end_line: start_line,
+                text,
+                depth,
+                is_field: true,
+            });
+        }
+        // Skip punctuation nodes (commas, brackets, etc.)
     }
 }
 
