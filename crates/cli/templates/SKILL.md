@@ -17,14 +17,17 @@ Navi is a Rust-based CLI tool built on `ast-grep` that provides AI-optimized cod
 | `navi jump <SYMBOL> [--path <DIR>] [--all]` | Jump to symbol definition (fuzzy suggestions on no match) |
 | `navi refs <SYMBOL> [--path <DIR>]` | Find all references to a symbol |
 | `navi read <FILE> <RANGE\|SYMBOL> [--hints]` | Read line range (`10:20`) or symbol body; `--hints` shows inline type annotations |
-| `navi tree [DIR] [--depth <N>]` | Recursive directory skeleton |
+| `navi tree [DIR] [--depth <N>] [-n <N>]` | Recursive directory skeleton (`-n` = min files) |
 | `navi outline [DIR]` | Project architecture overview |
 | `navi callers <SYMBOL> [--path <DIR>]` | Find call-sites (excludes imports) |
 | `navi deps <FILE>` | Show file import/reverse-import graph |
 | `navi types <SYMBOL> [--path <DIR>] [--depth <N>]` | Recursively expand type definitions |
 | `navi scope <FILE> <LINE>` | Show enclosing scope at a line |
-| `navi diff <SYMBOL> [--path <DIR>]` | Git diff filtered to a symbol |
+| `navi diff [SYMBOL] [--path <DIR>] [--since <N>]` | Git diff filtered to a symbol, or commit summary |
 | `navi impls <TRAIT> [--path <DIR>]` | Find all implementations of a trait/interface |
+| `navi grep <PATTERN> [--path <DIR>]` | AST-aware search (shows enclosing function) |
+| `navi exports <FILE\|DIR>` | List public API surface |
+| `navi flow <SYMBOL> [--path <DIR>] [--depth <N>]` | Recursive caller chain graph |
 | `navi sg [ARGS...]` | Passthrough to ast-grep CLI |
 | `navi init [DIR]` | Write/update this skill document |
 
@@ -36,7 +39,10 @@ Navi is a Rust-based CLI tool built on `ast-grep` that provides AI-optimized cod
 4. **Assess** → `navi refs <symbol>` or `navi callers <symbol>` to gauge blast radius
 5. **Trace types** → `navi types <symbol> --depth 2` to understand data shapes
 6. **Slice** → `navi read <file> <range>` to grab exact lines, or `navi read <file> <symbol>` to read a symbol's body; add `--hints` for IDE-style type annotations
-7. **Diff** → `navi diff <symbol>` to see recent changes to a symbol
+7. **Grep** → `navi grep <symbol>` to find matches with enclosing function context
+8. **APIs** → `navi exports <dir>` to see public API surface
+9. **Diff** → `navi diff <symbol>` to see recent changes to a symbol, or `navi diff --since 5` for a commit summary
+10. **Flow** → `navi flow <symbol> --depth 3` to trace the caller chain
 
 ## Exit Codes
 

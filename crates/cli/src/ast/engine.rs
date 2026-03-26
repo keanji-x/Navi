@@ -90,6 +90,11 @@ const DEFINITION_KINDS: &[&str] = &[
     "function_definition",
     // Export wrappers (we want the inner decls, but also catch top-level exports)
     "export_statement",
+    // Const / variable declarations (TS: `export const X = {...}`, Rust: `const`/`static`)
+    "lexical_declaration",    // TS/JS: const/let/var
+    "variable_declaration",   // JS: var
+    "const_item",             // Rust: const X: T = ...;
+    "static_item",            // Rust: static X: T = ...;
     // Rust module declarations: `mod name;` and `pub mod name { ... }`
     // Also `use_declaration` for re-export skeletons in mod.rs-style files
     "mod_item",
@@ -115,6 +120,17 @@ pub fn extract_name(
         for child in node.children() {
             if is_definition_kind(&child.kind()) {
                 return extract_name(&child);
+            }
+        }
+    }
+    // For lexical/variable declarations (TS/JS const/let/var), extract from variable_declarator
+    let k = node.kind();
+    if k.as_ref() == "lexical_declaration" || k.as_ref() == "variable_declaration" {
+        for child in node.children() {
+            if child.kind().as_ref() == "variable_declarator" {
+                if let Some(name_node) = child.field("name") {
+                    return Some(name_node.text().to_string());
+                }
             }
         }
     }
