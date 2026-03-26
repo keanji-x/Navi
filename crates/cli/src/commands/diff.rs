@@ -68,6 +68,122 @@ pub fn run(symbol: &str, path: Option<&Path>) -> Result<()> {
     Ok(())
 }
 
+/// `navi diff --since N` — summarize all symbols changed in last N commits.
+pub fn run_since(n: usize, path: Option<&Path>) -> Result<()> {
+    let search_dir = path.unwrap_or_else(|| Path::new("."));
+
+    // Get list of files changed in last N commits
+    let output = Command::new("git")
+        .args(["log", &format!("-{n}"), "--name-only", "--pretty=format:"])
+        .current_dir(search_dir)
+        .output()
+        .with_context(|| "Failed to run git log")?;
+
+    let file_list = String::from_utf8_lossy(&output.stdout);
+    let mut changed_files: Vec<String> = file_list
+        .lines()
+        .filter(|l| !l.is_empty())
+        .map(|l| l.to_string())
+        .collect();
+    changed_files.sort();
+    changed_files.dedup();
+
+    if changed_files.is_empty() {
+        println!("No files changed in last {n} commits");
+        return Ok(());
+    }
+
+    // Get the diff for all these commits
+    let diff_ref = format!("HEAD~{n}");
+
+    let mut found_any = false;
+
+    for file in &changed_files {
+        let file_path = if search_dir == Path::new(".") {
+            std::path::PathBuf::from(file)
+        } else {
+            search_dir.join(file)
+        };
+
+        if !file_path.exists() {
+            continue; // deleted file
+        }
+        if detect_lang(&file_path).is_err() {
+            continue;
+        }
+
+        // Get diff for this file over the commit range
+        let diff_output = Command::new("git")
+            .args(["diff", &diff_ref, "HEAD", "--unified=0", "--", file])
+            .current_dir(search_dir)
+            .output()
+            .with_context(|| format!("Failed to run git diff for {file}"))?;
+
+        let diff_str = String::from_utf8_lossy(&diff_output.stdout).to_string();
+        if diff_str.is_empty() {
+            continue;
+        }
+
+        // Parse the AST of the current file to map lines to symbols
+        if let Ok((grep, _source)) = parse_file(&file_path) {
+            let root = grep.root();
+            let defs = collect_definitions(&root);
+
+            // Parse hunk headers to get changed line ranges
+            let changed_lines = extract_changed_new_lines(&diff_str);
+
+            // Map changed lines to symbols
+            let mut changed_symbols: Vec<(&str, usize)> = Vec::new(); // (name, line)
+            for line in &changed_lines {
+                for def in &defs {
+                    if def.start_line <= *line
+                        && *line <= def.end_line
+                        && def.name.is_some()
+                    {
+                        let name = def.name.as_deref().unwrap();
+                        if !changed_symbols.iter().any(|(n, _)| *n == name) {
+                            changed_symbols.push((name, def.start_line));
+                        }
+                    }
+                }
+            }
+
+            if !changed_symbols.is_empty() {
+                if found_any {
+                    println!();
+                }
+                println!("{}:", file);
+                for (name, line) in &changed_symbols {
+                    println!("  {:>4}: {}", line + 1, name);
+                }
+                found_any = true;
+            }
+        }
+    }
+
+    if !found_any {
+        println!("No symbol-level changes found in last {n} commits");
+    }
+
+    Ok(())
+}
+
+/// Extract the new-side line numbers that were changed from a unified diff.
+fn extract_changed_new_lines(diff: &str) -> Vec<usize> {
+    let mut lines = Vec::new();
+    for line in diff.lines() {
+        if line.starts_with("@@") {
+            if let Some((start, count)) = parse_hunk_header(line) {
+                let start_0 = start.saturating_sub(1);
+                for i in 0..count {
+                    lines.push(start_0 + i);
+                }
+            }
+        }
+    }
+    lines
+}
+
 fn find_symbol_in_file(
     file: &Path,
     symbol: &str,

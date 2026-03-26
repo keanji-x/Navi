@@ -60,6 +60,9 @@ pub enum Command {
         /// Max directory depth to recurse into
         #[arg(long)]
         depth: Option<usize>,
+        /// Minimum number of files to display (auto-adjusts depth)
+        #[arg(short, long)]
+        n: Option<usize>,
     },
     /// Passthrough to ast-grep CLI (run, scan, test, etc.)
     #[command(trailing_var_arg = true)]
@@ -84,10 +87,13 @@ pub enum Command {
     /// Show git diff filtered to a specific symbol
     Diff {
         /// Symbol name to filter diff for
-        symbol: String,
+        symbol: Option<String>,
         /// Optional directory to search in (defaults to CWD)
         #[arg(long)]
         path: Option<PathBuf>,
+        /// Show symbols changed in the last N commits (summary mode)
+        #[arg(long)]
+        since: Option<usize>,
     },
     /// Find all implementations of a trait/interface
     Impls {
@@ -119,6 +125,30 @@ pub enum Command {
         file: PathBuf,
         /// Line number (1-indexed)
         line: usize,
+    },
+    /// AST-aware grep: search for an identifier and show enclosing function context
+    Grep {
+        /// Identifier pattern to search for
+        pattern: String,
+        /// Optional directory to search in (defaults to CWD)
+        #[arg(long)]
+        path: Option<PathBuf>,
+    },
+    /// List exported/public symbols from a file or directory
+    Exports {
+        /// Path to file or directory
+        path: PathBuf,
+    },
+    /// Trace the caller chain of a function up to N levels
+    Flow {
+        /// Entry function name
+        symbol: String,
+        /// Optional directory to search in (defaults to CWD)
+        #[arg(long)]
+        path: Option<PathBuf>,
+        /// Max depth of caller chain expansion (default: 2)
+        #[arg(long, default_value = "2")]
+        depth: usize,
     },
     /// Fallback: forward unknown commands to system shell
     #[command(external_subcommand)]

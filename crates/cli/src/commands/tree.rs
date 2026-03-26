@@ -4,7 +4,7 @@ use std::path::Path;
 use crate::ast::engine::{collect_definitions, detect_lang, parse_file};
 use crate::formatter;
 
-pub fn run(path: Option<&Path>, max_depth: Option<usize>) -> Result<()> {
+pub fn run(path: Option<&Path>, max_depth: Option<usize>, min_files: Option<usize>) -> Result<()> {
     let search_dir = path.unwrap_or_else(|| Path::new("."));
 
     if !search_dir.exists() {
@@ -15,7 +15,45 @@ pub fn run(path: Option<&Path>, max_depth: Option<usize>) -> Result<()> {
         return print_file_skeleton(search_dir);
     }
 
-    let mut builder = ignore::WalkBuilder::new(search_dir);
+    // If --n is specified, we do an adaptive walk: start with depth 1 and keep
+    // increasing until we reach the requested minimum number of files.
+    if let Some(min) = min_files {
+        let mut depth = 2;
+        loop {
+            let count = count_code_files(search_dir, depth)?;
+            if count >= min || depth > 20 {
+                return walk_and_print(search_dir, Some(depth));
+            }
+            depth += 1;
+        }
+    }
+
+    walk_and_print(search_dir, max_depth)
+}
+
+/// Count how many code files (parseable by ast-grep) exist within `dir` up to `max_depth`.
+fn count_code_files(dir: &Path, max_depth: usize) -> Result<usize> {
+    let mut builder = ignore::WalkBuilder::new(dir);
+    builder
+        .hidden(true)
+        .git_ignore(true)
+        .max_depth(Some(max_depth));
+    let walker = builder.build();
+
+    let mut count = 0;
+    for entry in walker {
+        let entry = entry?;
+        let entry_path = entry.path();
+        if entry_path.is_file() && detect_lang(entry_path).is_ok() {
+            count += 1;
+        }
+    }
+    Ok(count)
+}
+
+/// Walk directory and print skeleton for each code file.
+fn walk_and_print(dir: &Path, max_depth: Option<usize>) -> Result<()> {
+    let mut builder = ignore::WalkBuilder::new(dir);
     builder
         .hidden(true)
         .git_ignore(true)

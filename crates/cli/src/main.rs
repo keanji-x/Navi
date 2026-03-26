@@ -39,7 +39,11 @@ fn main() {
             commands::read::run(file, range, hints)
         }
         Command::Init { ref path } => commands::init::run(path.as_deref()),
-        Command::Tree { ref path, depth } => commands::tree::run(path.as_deref(), depth),
+        Command::Tree {
+            ref path,
+            depth,
+            n,
+        } => commands::tree::run(path.as_deref(), depth, n),
         Command::Sg { ref args } => commands::sg::run(args),
         Command::Callers {
             ref symbol,
@@ -49,7 +53,17 @@ fn main() {
         Command::Diff {
             ref symbol,
             ref path,
-        } => commands::diff::run(symbol, path.as_deref()),
+            since,
+        } => {
+            if let Some(n) = since {
+                commands::diff::run_since(n, path.as_deref())
+            } else if let Some(ref sym) = symbol {
+                commands::diff::run(sym, path.as_deref())
+            } else {
+                eprintln!("Error: navi diff requires either <SYMBOL> or --since <N>");
+                process::exit(2);
+            }
+        }
         Command::Impls {
             ref symbol,
             ref path,
@@ -61,6 +75,16 @@ fn main() {
             depth,
         } => commands::types::run(symbol, path.as_deref(), depth),
         Command::Scope { ref file, line } => commands::scope::run(file, line),
+        Command::Grep {
+            ref pattern,
+            ref path,
+        } => commands::grep::run(pattern, path.as_deref()),
+        Command::Exports { ref path } => commands::exports::run(path),
+        Command::Flow {
+            ref symbol,
+            ref path,
+            depth,
+        } => commands::flow::run(symbol, path.as_deref(), depth),
         Command::External(args) => {
             // Fallback: forward unknown commands to system shell
             let (cmd, cmd_args) = args.split_first().expect("external subcommand requires a command name");
