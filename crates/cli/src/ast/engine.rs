@@ -146,6 +146,9 @@ const FIELD_KINDS: &[&str] = &[
     "property_signature",         // TS interface properties
     "enum_variant",               // Rust enum variants
     "shorthand_property_identifier_pattern", // JS destructuring
+    "pair",                       // JS/TS object literal: { key: value }
+    "method_definition",          // JS/TS object literal: { method() {} }
+    "shorthand_property_identifier", // JS/TS: { foo } (shorthand)
 ];
 
 /// Check if a node kind is a field declaration.
@@ -206,17 +209,21 @@ fn collect_definitions_recursive(
 
         if is_container(&kind) {
             // Direct class/struct/impl/trait/interface — recurse into body
-            // Also collect field declarations (may be nested inside
-            // field_declaration_list, class_body, etc.)
             collect_members_recursive(node, defs, depth + 1);
         } else if kind == "export_statement" {
-            // Export wrapper — look for the inner class/interface declaration and recurse
+            // Export wrapper — look for the inner declaration and recurse
             for child in node.children() {
                 let child_kind = child.kind().to_string();
                 if is_container(&child_kind) {
                     collect_members_recursive(&child, defs, depth + 1);
+                } else if child_kind == "lexical_declaration" || child_kind == "variable_declaration" {
+                    // export const X = { ... } — extract object properties
+                    collect_const_object_members(&child, defs, depth + 1);
                 }
             }
+        } else if kind == "lexical_declaration" || kind == "variable_declaration" {
+            // const X = { ... } — extract object properties
+            collect_const_object_members(node, defs, depth + 1);
         }
         return;
     }
@@ -269,6 +276,36 @@ fn collect_field(
         depth,
         is_field: true,
     });
+}
+
+/// Recurse into a const/let/var declaration to find object literal values and extract their
+/// properties (pairs) as field-depth members. Handles: `const X: T = { key: val, ... }`
+fn collect_const_object_members(
+    node: &ast_grep_core::Node<ast_grep_core::tree_sitter::StrDoc<SupportLang>>,
+    defs: &mut Vec<DefinitionInfo>,
+    depth: usize,
+) {
+    for child in node.children() {
+        let ck = child.kind().to_string();
+        if ck == "variable_declarator" {
+            // Look at the "value" field for object/array literals
+            if let Some(value_node) = child.field("value") {
+                let vk = value_node.kind().to_string();
+                if vk == "object" || vk == "object_expression" {
+                    collect_members_recursive(&value_node, defs, depth);
+                }
+                // Also handle: { ... } as const / { ... } satisfies T
+                if vk == "as_expression" || vk == "satisfies_expression" {
+                    for inner in value_node.children() {
+                        let ik = inner.kind().to_string();
+                        if ik == "object" || ik == "object_expression" {
+                            collect_members_recursive(&inner, defs, depth);
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 /// Find all identifier nodes that match a given symbol name.
@@ -485,4 +522,76 @@ pub fn find_callers_in_node(
         }
     }
     callers
+}
+
+/// Callee information: function name + location.
+pub struct CalleeInfo {
+    pub name: String,
+    pub line: usize,
+    #[allow(dead_code)]
+    pub line_text: String,
+}
+
+/// Find all functions/methods called within a specific line range (e.g. a function body).
+/// Returns named callee info, deduplicated by name.
+pub fn find_callees_named_in_range(
+    node: &ast_grep_core::Node<ast_grep_core::tree_sitter::StrDoc<SupportLang>>,
+    start_line: usize,
+    end_line: usize,
+    source: &str,
+) -> Vec<CalleeInfo> {
+    let mut callees = Vec::new();
+    let lines: Vec<&str> = source.lines().collect();
+    let mut seen = std::collections::HashSet::new();
+
+    for n in node.dfs() {
+        let kind = n.kind();
+        if !CALL_EXPRESSION_KINDS.contains(&kind.as_ref()) {
+            continue;
+        }
+        let call_line = n.start_pos().line();
+        if call_line < start_line || call_line > end_line {
+            continue;
+        }
+
+        // Extract the callee name from the call expression
+        let callee_name = extract_callee_name(&n);
+        if let Some(name) = callee_name {
+            if seen.insert(name.clone()) {
+                let line_text = lines.get(call_line).unwrap_or(&"").to_string();
+                callees.push(CalleeInfo {
+                    name,
+                    line: call_line,
+                    line_text,
+                });
+            }
+        }
+    }
+    callees
+}
+
+/// Extract the callee function name from a call expression node.
+fn extract_callee_name(
+    node: &ast_grep_core::Node<ast_grep_core::tree_sitter::StrDoc<SupportLang>>,
+) -> Option<String> {
+    // The "function" field of a call_expression is the callee
+    if let Some(func) = node.field("function") {
+        let fk = func.kind().to_string();
+        if fk == "identifier" {
+            return Some(func.text().to_string());
+        }
+        // obj.method() — member_expression with property "property"
+        if fk == "member_expression" {
+            if let Some(prop) = func.field("property") {
+                return Some(prop.text().to_string());
+            }
+        }
+        // Fallback: just use the full text of the callee
+        return Some(func.text().to_string());
+    }
+    // new Foo() — constructor field
+    if let Some(ctor) = node.field("constructor") {
+        return Some(ctor.text().to_string());
+    }
+    None
 }

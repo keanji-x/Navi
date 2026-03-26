@@ -4,7 +4,7 @@ use std::path::Path;
 use crate::ast::engine::{collect_definitions, detect_lang, parse_file};
 use crate::formatter;
 
-pub fn run(path: Option<&Path>, max_depth: Option<usize>, min_files: Option<usize>) -> Result<()> {
+pub fn run(path: Option<&Path>, max_depth: Option<usize>, min_files: Option<usize>, all: bool) -> Result<()> {
     let search_dir = path.unwrap_or_else(|| Path::new("."));
 
     if !search_dir.exists() {
@@ -13,6 +13,11 @@ pub fn run(path: Option<&Path>, max_depth: Option<usize>, min_files: Option<usiz
 
     if search_dir.is_file() {
         return print_file_skeleton(search_dir);
+    }
+
+    // --all mode: show full directory structure like unix `tree`
+    if all {
+        return walk_and_print_all(search_dir, max_depth);
     }
 
     // If --n is specified, we do an adaptive walk: start with depth 1 and keep
@@ -100,6 +105,88 @@ fn walk_and_print(dir: &Path, max_depth: Option<usize>) -> Result<()> {
         );
     }
 
+    Ok(())
+}
+
+/// Walk directory and print ALL files (not just code files) in a tree structure.
+/// Code files get symbol counts; other files shown by name only.
+fn walk_and_print_all(dir: &Path, max_depth: Option<usize>) -> Result<()> {
+    let mut builder = ignore::WalkBuilder::new(dir);
+    builder
+        .hidden(true)
+        .git_ignore(true)
+        .sort_by_file_path(|a, b| a.cmp(b));
+    if let Some(d) = max_depth {
+        builder.max_depth(Some(d));
+    }
+    let walker = builder.build();
+
+    let dir_prefix = dir.to_string_lossy().to_string();
+    let mut file_count = 0usize;
+    let mut dir_count = 0usize;
+    let mut code_file_count = 0usize;
+    let mut total_symbols = 0usize;
+
+    for entry in walker {
+        let entry = entry?;
+        let entry_path = entry.path();
+
+        // Compute relative path for clean display
+        let display_path = entry_path.display().to_string();
+        let rel = if display_path.starts_with(&dir_prefix) {
+            let stripped = &display_path[dir_prefix.len()..];
+            stripped.trim_start_matches('/')
+        } else {
+            &display_path
+        };
+
+        // Skip the root directory itself
+        if rel.is_empty() {
+            continue;
+        }
+
+        // Calculate indent based on path depth
+        let depth = rel.matches('/').count();
+        let indent = "  ".repeat(depth);
+
+        if entry_path.is_dir() {
+            dir_count += 1;
+            println!("{}{}/", indent, entry_path.file_name().unwrap_or_default().to_string_lossy());
+        } else {
+            file_count += 1;
+            let fname = entry_path.file_name().unwrap_or_default().to_string_lossy().to_string();
+
+            if detect_lang(entry_path).is_ok() {
+                // Code file — show symbol count
+                code_file_count += 1;
+                match parse_file(entry_path) {
+                    Ok((grep, _source)) => {
+                        let root = grep.root();
+                        let defs = collect_definitions(&root);
+                        let top_level = defs.iter().filter(|d| d.depth == 0).count();
+                        total_symbols += top_level;
+                        if top_level > 0 {
+                            println!("{}{}  ({} symbols)", indent, fname, top_level);
+                        } else {
+                            println!("{}{}", indent, fname);
+                        }
+                    }
+                    Err(_) => {
+                        println!("{}{}", indent, fname);
+                    }
+                }
+            } else {
+                // Non-code file — just show name
+                println!("{}{}", indent, fname);
+            }
+        }
+    }
+
+    println!();
+    println!(
+        "({} directories, {} files, {} code files, {} symbols)",
+        dir_count, file_count, code_file_count, total_symbols
+    );
     Ok(())
 }
 

@@ -43,7 +43,8 @@ fn main() {
             ref path,
             depth,
             n,
-        } => commands::tree::run(path.as_deref(), depth, n),
+            all,
+        } => commands::tree::run(path.as_deref(), depth, n, all),
         Command::Sg { ref args } => commands::sg::run(args),
         Command::Callers {
             ref symbol,
@@ -89,7 +90,8 @@ fn main() {
             ref symbol,
             ref path,
             depth,
-        } => commands::flow::run(symbol, path.as_deref(), depth),
+            down,
+        } => commands::flow::run(symbol, path.as_deref(), depth, down),
         Command::Search {
             ref pattern,
             ref path,

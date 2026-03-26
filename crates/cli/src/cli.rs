@@ -63,6 +63,9 @@ pub enum Command {
         /// Minimum number of files to display (auto-adjusts depth)
         #[arg(short, long)]
         n: Option<usize>,
+        /// Show full directory structure including non-code files
+        #[arg(long)]
+        all: bool,
     },
     /// Passthrough to ast-grep CLI (run, scan, test, etc.)
     #[command(trailing_var_arg = true)]
@@ -152,6 +155,9 @@ pub enum Command {
         /// Max depth of caller chain expansion (default: 2)
         #[arg(long, default_value = "2")]
         depth: usize,
+        /// Trace callees (what this function calls) instead of callers
+        #[arg(long)]
+        down: bool,
     },
     /// Search for symbols by name pattern and optional kind filter
     Search {
