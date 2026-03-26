@@ -30,12 +30,13 @@ fn main() {
         Command::Read {
             ref file,
             ref range,
+            hints,
         } => {
             if !file.exists() {
                 eprintln!("Error: File does not exist: {}", file.display());
                 process::exit(1);
             }
-            commands::read::run(file, range)
+            commands::read::run(file, range, hints)
         }
         Command::Init { ref path } => commands::init::run(path.as_deref()),
         Command::Tree { ref path, depth } => commands::tree::run(path.as_deref(), depth),
